@@ -1,0 +1,381 @@
+import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
+import { Calendar, Clock, MapPin, Car, Plus, Compass, Check, AlertCircle, RefreshCw, Eye } from 'lucide-react';
+import { CalendarEvent } from '../types';
+
+interface CalendarPanelProps {
+  events: CalendarEvent[];
+  onEventCreated: () => void;
+  isLoading: boolean;
+  setIsLoading: (val: boolean) => void;
+}
+
+export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading }: CalendarPanelProps) {
+  const [data, setData] = useState<CalendarEvent[]>(events);
+  
+  // Custom maps travel states
+  const [origin, setOrigin] = useState('Home Studio');
+  const [destination, setDestination] = useState('AWS Campus Center');
+  const [travelReport, setTravelReport] = useState<any | null>(null);
+  const [mapsLoading, setMapsLoading] = useState(false);
+
+  // Manual event creator states
+  const [showAddEvent, setShowAddEvent] = useState(false);
+  const [title, setTitle] = useState('');
+  const [start, setStart] = useState('2026-06-23T16:00');
+  const [end, setEnd] = useState('2026-06-23T17:00');
+  const [category, setCategory] = useState<'work' | 'personal' | 'meeting'>('meeting');
+  const [travelTime, setTravelTime] = useState(40);
+  const [commuteBlocked, setCommuteBlocked] = useState(true);
+
+  useEffect(() => {
+    setData(events);
+  }, [events]);
+
+  const queryTransitDetails = async () => {
+    setMapsLoading(true);
+    try {
+      const res = await fetch(`/api/maps/travel-time?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`);
+      const payload = await res.json();
+      setTravelReport(payload);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setMapsLoading(false);
+    }
+  };
+
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title) return;
+
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          start: new Date(start).toISOString(),
+          end: new Date(end).toISOString(),
+          category,
+          travelTime: category === 'meeting' ? travelTime : undefined,
+          commuteBlocked: category === 'meeting' && commuteBlocked
+        })
+      });
+
+      if (res.ok) {
+        setTitle('');
+        setShowAddEvent(false);
+        onEventCreated();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Organize events by day of week
+  const daysOfWeek = [
+    { name: 'Monday', dateStr: '2026-06-22' },
+    { name: 'Tuesday', dateStr: '2026-06-23' },
+    { name: 'Wednesday', dateStr: '2026-06-24' },
+    { name: 'Thursday', dateStr: '2026-06-25' },
+    { name: 'Friday', dateStr: '2026-06-26' },
+  ];
+
+  const getEventsForDay = (dateStr: string) => {
+    return data.filter(e => {
+      const eventDay = e.start.split('T')[0];
+      return eventDay === dateStr;
+    }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      {/* Timeline calendar agenda list */}
+      <div className="lg:col-span-2 space-y-4">
+        
+        <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-stone-200/85 shadow-xs">
+          <div>
+            <h2 className="text-xs font-bold font-mono tracking-wider text-indigo-705 uppercase flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-indigo-600 animate-pulse" />
+              Travel-Aware Schedule Agenda
+            </h2>
+            <span className="text-[10px] text-stone-500 font-mono font-medium">Current week starting June 22, 2026</span>
+          </div>
+          <button
+            onClick={() => setShowAddEvent(!showAddEvent)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer shadow-sm border border-indigo-650"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Calendar Slot
+          </button>
+        </div>
+
+        {/* Modal-like event slot creator */}
+        {showAddEvent && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white border border-stone-250/80 p-5 rounded-xl space-y-3 text-xs shadow-md"
+          >
+            <h3 className="text-xs font-bold text-stone-850">Create Calendar Slot</h3>
+            <form onSubmit={handleCreateEvent} className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">Event Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="E.g., Client Consultation Meeting"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full bg-white border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs text-stone-850 focus:outline-none focus:border-indigo-500 font-semibold"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">Start</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={start}
+                      onChange={(e) => setStart(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-[11px] text-stone-850 focus:outline-none font-mono font-semibold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">End</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={end}
+                      onChange={(e) => setEnd(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-[11px] text-stone-850 focus:outline-none font-mono font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                <div>
+                  <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">Slot Type</label>
+                  <select
+                    value={category}
+                    onChange={(e: any) => setCategory(e.target.value)}
+                    className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-850 focus:outline-none font-semibold"
+                  >
+                    <option value="meeting">Business Meeting</option>
+                    <option value="work">Focus Deep Work</option>
+                    <option value="personal">Personal / Leisure</option>
+                  </select>
+                </div>
+
+                {category === 'meeting' && (
+                  <>
+                    <div>
+                      <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">Commute Duration (mins)</label>
+                      <input
+                        type="number"
+                        value={travelTime}
+                        onChange={(e) => setTravelTime(Number(e.target.value))}
+                        className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-xs text-stone-800 focus:outline-none font-mono font-semibold"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 pt-4">
+                      <input
+                        type="checkbox"
+                        id="blockCommute"
+                        checked={commuteBlocked}
+                        onChange={(e) => setCommuteBlocked(e.target.checked)}
+                        className="w-3.5 h-3.5 accent-indigo-600 rounded bg-white border border-stone-300 cursor-pointer"
+                      />
+                      <label htmlFor="blockCommute" className="font-mono text-[9px] text-stone-605 cursor-pointer font-bold">
+                        Block Commute Buffer
+                      </label>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddEvent(false)}
+                  className="px-3 py-1.5 border border-stone-200 text-stone-500 hover:text-stone-850 rounded-lg cursor-pointer hover:bg-stone-50 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-indigo-600 hover:bg-indigo-700 border border-indigo-650 text-white font-bold px-3 py-1.5 rounded-lg cursor-pointer"
+                >
+                  Insert Event Block
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+
+        {/* Calendar days timeline */}
+        <div className="space-y-4">
+          {daysOfWeek.map((day) => {
+            const evts = getEventsForDay(day.dateStr);
+            const isToday = day.dateStr === '2026-06-22';
+
+            return (
+              <div key={day.dateStr} className={`p-4 rounded-xl border ${isToday ? 'bg-indigo-50/40 border-indigo-305 shadow-sm shadow-indigo-100/30' : 'bg-white border-stone-200/80 shadow-xs'}`}>
+                <div className="flex items-center justify-between border-b border-stone-200/60 pb-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-stone-850">{day.name}</span>
+                    <span className="text-[10px] text-stone-450 font-mono font-semibold">{day.dateStr}</span>
+                  </div>
+                  {isToday && (
+                    <span className="text-[8px] bg-indigo-150 text-indigo-805 border border-indigo-250 font-bold px-2 py-0.5 rounded font-mono uppercase">
+                      Today Mode
+                    </span>
+                  )}
+                </div>
+
+                {evts.length === 0 ? (
+                  <p className="text-xs text-stone-400 italic py-2 font-medium">No slotted occurrences planned.</p>
+                ) : (
+                  <div className="relative border-l border-stone-200 ml-2 pl-4 space-y-3 font-mono text-[11px]">
+                    {evts.map((e) => {
+                      const startTime = new Date(e.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      const endTime = new Date(e.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                      let blockStyle = 'bg-stone-50 border-l-4 border-stone-400 text-stone-800 border-y border-r border-stone-150';
+                      
+                      if (e.category === 'meeting') {
+                        blockStyle = 'bg-amber-50 border-l-4 border-amber-500 text-amber-900 border-y border-r border-amber-150';
+                      } else if (e.category === 'deep_work') {
+                        blockStyle = 'bg-indigo-50 border-l-4 border-indigo-500 text-indigo-900 border-y border-r border-indigo-150';
+                      } else if (e.category === 'commute') {
+                        blockStyle = 'bg-orange-50 border-l-4 border-dashed border-orange-400 text-orange-950 opacity-85 border-y border-r border-orange-150';
+                      }
+
+                      return (
+                        <div key={e.id} className={`p-2.5 rounded-lg border flex items-center justify-between shadow-xs ${blockStyle}`}>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              {e.category === 'commute' && <Car className="w-3.5 h-3.5 text-orange-600 animate-pulse" />}
+                              <span className="font-bold">{e.title}</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-3 text-[10px] text-stone-500 font-bold">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-stone-400" />
+                                {startTime} – {endTime}
+                              </span>
+                              {e.travelTime && (
+                                <span className="text-orange-700 flex items-center gap-0.5 font-bold">
+                                  <MapPin className="w-3 h-3 text-orange-500" />
+                                  Requires {e.travelTime}m travel buffer
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Right column: Google Maps travel estimation tool */}
+      <div className="bg-white border border-stone-200/80 rounded-xl p-5 h-fit text-stone-605 space-y-4 shadow-sm">
+        
+        <div className="border-b border-stone-200/60 pb-3">
+          <span className="text-[9px] font-mono font-bold tracking-wider text-indigo-705 uppercase flex items-center gap-1">
+            <Compass className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+            Travel-Aware Google Maps API
+          </span>
+          <h3 className="text-xs font-bold text-stone-850 mt-1">Commute Delay Estimator</h3>
+        </div>
+
+        <div className="space-y-3 text-xs">
+          <div className="space-y-1 flex flex-col">
+            <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">Origin Location</label>
+            <input
+              type="text"
+              value={origin}
+              onChange={(e) => setOrigin(e.target.value)}
+              className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-850 focus:outline-none focus:border-indigo-500/50 font-semibold"
+            />
+          </div>
+
+          <div className="space-y-1 flex flex-col">
+            <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">Destination Meeting</label>
+            <input
+              type="text"
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-850 focus:outline-none focus:border-indigo-500/50 font-semibold"
+            />
+          </div>
+
+          <button
+            onClick={queryTransitDetails}
+            disabled={mapsLoading}
+            className="w-full bg-stone-50 border border-stone-200 hover:bg-stone-100/80 py-2.5 rounded-lg text-xs font-bold font-mono flex items-center justify-center gap-2 cursor-pointer transition-colors text-stone-700"
+          >
+            {mapsLoading ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                Querying Matrix...
+              </>
+            ) : (
+              <>
+                <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                Query Transit Estimates
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Travel matrix results block */}
+        {travelReport && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-stone-50 p-4 rounded-lg border border-stone-200 space-y-3 text-xs leading-normal shadow-xs"
+          >
+            <div className="flex items-center gap-2 border-b border-stone-200/80 pb-1.5 text-[10px] font-bold font-mono text-emerald-700 uppercase">
+              <Check className="w-4 h-4 text-emerald-600" />
+              <span>Route Diagnostics Completed</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-stone-600 font-bold">
+              <div>
+                <span className="text-stone-400 block text-[9px] font-bold">Distance</span>
+                <span className="text-stone-800 font-extrabold">{travelReport.travelDistanceMiles} Miles</span>
+              </div>
+              <div>
+                <span className="text-stone-400 block text-[9px] font-bold">Commute Duration</span>
+                <span className="text-stone-800 font-extrabold">{travelReport.travelDurationMinutes} Mins</span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 bg-orange-50 border border-orange-150 p-2.5 rounded text-[10px] text-orange-850 font-semibold">
+              <AlertCircle className="w-4 h-4 mt-0.5 text-orange-500 shrink-0" />
+              <p className="leading-relaxed">
+                AI blocked <span className="font-bold underline text-orange-950">3:20 PM – 4:00 PM</span> prior to event start. Real-time maps estimate {Math.round(travelReport.predictedDelaysSeconds / 60)}m active corridor delays.
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+      </div>
+
+    </div>
+  );
+}

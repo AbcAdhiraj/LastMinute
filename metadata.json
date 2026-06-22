@@ -1,0 +1,10 @@
+{
+  "name": "Last Minute Life Saver",
+  "description": "An AI Productivity Chief of Staff that predicts scheduling risks and automatically heals your calendar when you fall behind.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
