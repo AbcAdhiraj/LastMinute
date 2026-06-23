@@ -211,6 +211,79 @@ function findFreeBlocks(db: AppDatabase, hoursNeeded: number): { start: string; 
   return blocks;
 }
 
+/**
+ * Dynamically re-allocates study sessions for all active tasks (pipeline).
+ * Sorts them by urgency/importance and re-schedules focus blocks sequentially.
+ */
+function triggerGlobalRescheduling(): void {
+  updateDb((db) => {
+    // 1. Clear all of our current study (deep work) blocks that are scheduled (non-completed)
+    db.scheduledSessions = db.scheduledSessions.filter(s => s.status !== 'scheduled');
+    db.calendarEvents = db.calendarEvents.filter(e => e.category !== 'deep_work');
+
+    // 2. Map weight to importance levels: critical (4) > high (3) > medium (2) > low (1)
+    const getImportanceWeight = (imp?: string) => {
+      if (imp === 'critical') return 4;
+      if (imp === 'high') return 3;
+      if (imp === 'medium') return 2;
+      return 1;
+    };
+
+    // 3. Obtain active, non-completed tasks
+    const activeTasks = db.tasks.filter(t => t.status !== 'completed' && t.status !== 'missed');
+    
+    // 4. Sort tasks by importance descending, and then by deadline ascending
+    activeTasks.sort((a, b) => {
+      const weightA = getImportanceWeight(a.importance);
+      const weightB = getImportanceWeight(b.importance);
+      if (weightA !== weightB) {
+        return weightB - weightA;
+      }
+      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+    });
+
+    // 5. Successively schedule free study slots for each active task
+    activeTasks.forEach(task => {
+      const remaining = task.remainingEffort;
+      if (remaining <= 0) return;
+
+      // Note: findFreeBlocks evaluates blockers using the live db parameter
+      const blocks = findFreeBlocks(db, remaining);
+      const sessionsForTask = blocks.map((b, idx) => ({
+        id: `sess_dyn_${task.id}_${Date.now()}_${idx}`,
+        taskId: task.id,
+        taskTitle: task.title,
+        start: b.start,
+        end: b.end,
+        duration: 2,
+        status: 'scheduled' as const
+      }));
+
+      const eventsForTask = sessionsForTask.map(s => ({
+        id: `evt_${s.id}`,
+        title: `Study: ${task.title}`,
+        start: s.start,
+        end: s.end,
+        category: 'deep_work' as const,
+        taskId: task.id
+      }));
+
+      db.scheduledSessions.push(...sessionsForTask);
+      db.calendarEvents.push(...eventsForTask);
+    });
+
+    // 6. Record a notification trace
+    db.notifications.unshift({
+      id: "notif_dyn_" + Math.random().toString(36).substr(2, 9),
+      title: "Pipeline Recalculated Automatically",
+      message: `System dynamically reorganized focus buffers for ${activeTasks.length} active tasks across your week to assure optimal coverage.`,
+      type: 'schedule_change',
+      timestamp: new Date().toISOString(),
+      read: false
+    });
+  });
+}
+
 // ==========================================
 // 3. API ENDPOINTS
 // ==========================================
@@ -307,47 +380,7 @@ app.post('/api/tasks', async (req: Request, res: Response) => {
 
     // If auto-schedule is requested, trigger session distribution!
     if (autoSchedule) {
-      const db = readDb();
-      const blocks = findFreeBlocks(db, newTask.estimatedEffort);
-      
-      const newSessions: ScheduledSession[] = blocks.map((b, idx) => ({
-        id: `sess_${newTask.id}_${idx}`,
-        taskId: newTask.id,
-        taskTitle: newTask.title,
-        start: b.start,
-        end: b.end,
-        duration: 2,
-        status: 'scheduled'
-      }));
-
-      // Map to Calendar Event representations
-      const newCalEvents: CalendarEvent[] = newSessions.map(s => ({
-        id: `evt_${s.id}`,
-        title: `Study: ${newTask.title}`,
-        start: s.start,
-        end: s.end,
-        category: 'deep_work',
-        taskId: newTask.id
-      }));
-
-      updateDb((db) => {
-        db.scheduledSessions.push(...newSessions);
-        db.calendarEvents.push(...newCalEvents);
-      });
-
-      // Insert smart notification about automated schedule allocation
-      const notif: Notification = {
-        id: "notif_" + Math.random().toString(36).substr(2, 9),
-        title: `Auto-Scheduled: ${newTask.title}`,
-        message: `Distributed ${newTask.estimatedEffort} hours over ${newSessions.length} sessions across your calendar automatically.`,
-        type: 'schedule_change',
-        timestamp: new Date().toISOString(),
-        read: false
-      };
-      
-      updateDb((db) => {
-        db.notifications.unshift(notif);
-      });
+      triggerGlobalRescheduling();
     }
 
     // Trigger AI Risk re-evaluation in background if key is present
@@ -600,9 +633,49 @@ app.post('/api/calendar', (req: Request, res: Response) => {
     };
 
     updateDb(db => { db.calendarEvents.push(newEvt); });
+
+    // Automatically trigger pipeline rescheduling around the new event blocker
+    triggerGlobalRescheduling();
+
     res.status(201).json(newEvt);
   } catch (err) {
     handleError(res, err, "Failed to add calendar block");
+  }
+});
+
+// POST Google Calendar Synced Events
+app.post('/api/calendar/sync-google-events', (req: Request, res: Response) => {
+  try {
+    const { events } = req.body;
+    if (!Array.isArray(events)) {
+      return res.status(400).json({ error: "An array of Google Calendar events is required." });
+    }
+
+    updateDb((db) => {
+      // Clear previous synced Google Calendar events to prevent duplicate clusters
+      db.calendarEvents = db.calendarEvents.filter(e => !e.id.startsWith("gcal_"));
+
+      events.forEach((evt: any) => {
+        const itemStart = evt.start?.dateTime || evt.start?.date || evt.start;
+        const itemEnd = evt.end?.dateTime || evt.end?.date || evt.end;
+        if (!itemStart || !itemEnd) return;
+
+        db.calendarEvents.push({
+          id: `gcal_${evt.id || Math.random().toString(36).substr(2, 9)}`,
+          title: evt.summary || evt.title || "Google Calendar Event",
+          start: new Date(itemStart).toISOString(),
+          end: new Date(itemEnd).toISOString(),
+          category: 'meeting'
+        });
+      });
+    });
+
+    // Automatically trigger dynamic rescheduling around new Google calendar blockers
+    triggerGlobalRescheduling();
+
+    res.json({ success: true, message: "Google Calendar synced and study sessions re-allocated optimally." });
+  } catch (err) {
+    handleError(res, err, "Failed logs sync Google calendar");
   }
 });
 

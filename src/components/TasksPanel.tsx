@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckSquare, Calendar, AlertTriangle, AlertCircle, CheckCircle, RefreshCcw, Plus, Trash2, ShieldAlert, BadgeInfo } from 'lucide-react';
+import { CheckSquare, Calendar, AlertTriangle, AlertCircle, CheckCircle, RefreshCcw, Plus, Trash2, ShieldAlert, BadgeInfo, Activity } from 'lucide-react';
 import { Task, ImportanceLevel } from '../types';
 
 interface TasksPanelProps {
@@ -8,9 +8,18 @@ interface TasksPanelProps {
   onTaskUpdated: () => void;
   isLoading: boolean;
   setIsLoading: (val: boolean) => void;
+  healedTaskIds?: string[];
+  onTriggerTaskHeal?: (taskId: string) => void;
 }
 
-export function TasksPanel({ tasks, onTaskUpdated, isLoading, setIsLoading }: TasksPanelProps) {
+export function TasksPanel({ 
+  tasks, 
+  onTaskUpdated, 
+  isLoading, 
+  setIsLoading,
+  healedTaskIds = [],
+  onTriggerTaskHeal
+}: TasksPanelProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -359,12 +368,32 @@ export function TasksPanel({ tasks, onTaskUpdated, isLoading, setIsLoading }: Ta
                       </div>
                     </div>
 
-                    {/* Completion score badge */}
-                    <div className={`p-2 py-1.5 rounded-lg border text-left min-w-[120px] sm:min-w-28 ${probBg} self-start sm:self-auto`}>
-                      <span className="block text-[8px] font-bold font-mono text-stone-400 uppercase tracking-tight">{statusLabel}</span>
-                      <span className={`text-xs font-bold font-mono tracking-tight ${probColor}`}>
-                        {rprob}% Probability
-                      </span>
+                    {/* Completion score badge & Heal trigger if <40% */}
+                    <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 select-none">
+                      {rprob < 40 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onTriggerTaskHeal) {
+                              onTriggerTaskHeal(task.id);
+                            } else {
+                              handleTriggerHeal(task.id);
+                            }
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] uppercase font-mono font-bold px-2.5 py-1.5 rounded-lg shadow-xs flex items-center gap-1 cursor-pointer transition-all hover:scale-102"
+                          title="Click to recalculate schedule"
+                        >
+                          <Activity className="w-3.5 h-3.5 text-white animate-pulse" />
+                          <span>Heal</span>
+                        </button>
+                      )}
+                      
+                      <div className={`p-2 py-1.5 rounded-lg border text-left min-w-[110px] sm:min-w-28 ${probBg}`}>
+                        <span className="block text-[8px] font-bold font-mono text-stone-400 uppercase tracking-tight">{statusLabel}</span>
+                        <span className={`text-xs font-bold font-mono tracking-tight ${probColor}`}>
+                          {rprob}% Probability
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -440,7 +469,13 @@ export function TasksPanel({ tasks, onTaskUpdated, isLoading, setIsLoading }: Ta
                     </button>
 
                     <button
-                      onClick={() => handleTriggerHeal(task.id)}
+                      onClick={() => {
+                        if (onTriggerTaskHeal) {
+                          onTriggerTaskHeal(task.id);
+                        } else {
+                          handleTriggerHeal(task.id);
+                        }
+                      }}
                       className="w-full bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
                     >
                       <RefreshCcw className="w-4 h-4 text-emerald-500 animate-spin-slow" />

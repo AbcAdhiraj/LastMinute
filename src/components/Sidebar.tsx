@@ -41,7 +41,7 @@ export function Sidebar({ activeTab, setActiveTab, unreadsCount, risksCount, sid
               </span>
               <div>
                 <h1 className="font-bold text-stone-850 text-sm tracking-wide uppercase">Life Saver</h1>
-                <span className="text-[10px] text-stone-400 font-semibold font-mono uppercase">AI Chief of Staff</span>
+                <span className="text-[10px] text-stone-400 font-semibold font-mono uppercase">Goofy</span>
               </div>
             </div>
             <div className="flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">

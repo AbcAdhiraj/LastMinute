@@ -88,7 +88,7 @@ export function VoicePanel({ onCommandExecuted, isLoading, setIsLoading }: Voice
         
         <div>
           <h2 className="text-xs font-bold font-mono tracking-wider text-indigo-705 uppercase">Voice Operating System</h2>
-          <p className="text-xs text-stone-500 font-mono mt-1 font-medium">Talk to your Chief of Staff to edit schedules hands-free</p>
+          <p className="text-xs text-stone-500 font-mono mt-1 font-medium">Talk to Goofy to edit schedules hands-free</p>
         </div>
 
         {/* Recording active visualization widget of waves */}

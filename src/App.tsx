@@ -31,6 +31,39 @@ export default function App() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
 
+  const [healedTaskIds, setHealedTaskIds] = useState<string[]>([]);
+  const [cheekyMessage, setCheekyMessage] = useState<string | null>(null);
+
+  const triggerTaskHeal = async (taskId: string) => {
+    setIsLoading(true);
+    let updatedHealed = healedTaskIds;
+    if (!healedTaskIds.includes(taskId)) {
+      updatedHealed = [...healedTaskIds, taskId];
+      setHealedTaskIds(updatedHealed);
+    }
+    try {
+      const res = await fetch('/api/self-heal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, explicitReason: "Autonomous single-task corrective recovery." })
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchAppData();
+        if (updatedHealed.length > 1) {
+          // Display cheeky message instead of standard alert
+          setCheekyMessage(`Whoa there, Adhiraj! As the saying goes, 'a stitch in time saves nine' and 'an ounce of prevention is worth a pound of cure'! You are trying to shut the stable door after the horse has bolted. If you had put in the work earlier instead of trying to work miracles at the eleventh hour, you wouldn't be in this pickle! But no use crying over spilled milk—I've healed your schedule for this task, but let's make sure we face the music and don't make this a habit!`);
+        } else {
+          alert(`Schedule auto-healing for this task completed successfully! Associated study blocks on your calendar have been reallocated.`);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const fetchAppData = async () => {
     setIsLoading(true);
     try {
@@ -85,7 +118,12 @@ export default function App() {
 
   // Badges calculations
   const unreadEmails = commitments.filter(c => c.status === 'discovered').length;
-  const highRiskCounts = tasks.filter(t => t.status !== 'completed' && t.risk?.status !== 'on_track').length;
+  const tightTasks = tasks.filter(t => t.status !== 'completed' && t.risk?.status !== 'on_track');
+  const highRiskCounts = tightTasks.length;
+  const tightTaskNames = tightTasks.map(t => t.title);
+  const plansText = tightTaskNames.length > 0 
+    ? tightTaskNames.map(name => `"${name}"`).join(', ') 
+    : "your active plans";
 
   return (
     <div className="flex h-screen bg-[#faf9f6] overflow-hidden text-stone-750 relative font-sans">
@@ -192,22 +230,17 @@ export default function App() {
                             <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></span>
                           </div>
                           <div className="md:hidden">
-                            <span className="text-[10px] uppercase tracking-wider font-bold text-indigo-600 font-mono">Gemini Chief of Staff</span>
+                            <span className="text-[10px] uppercase tracking-wider font-bold text-indigo-600 font-mono">Goofy</span>
                             <h4 className="text-xs font-extrabold text-stone-850">Your AI Assistant</h4>
                           </div>
-                        </div>
-
-                        {/* Speech Bubble / Message Content */}
+                        </div>                         {/* Speech Bubble / Message Content */}
                         <div className="flex-1 space-y-2">
                           <div className="hidden md:block">
-                            <span className="text-[9px] uppercase tracking-wider font-bold text-indigo-600 font-mono">Gemini Chief of Staff</span>
+                            <span className="text-[9px] uppercase tracking-wider font-bold text-indigo-600 font-mono">Goofy</span>
                           </div>
                           
-                          <p className="text-xs text-stone-600 leading-relaxed font-medium">
-                            Hey there, <span className="font-bold text-stone-850">Adhiraj</span>! Just holding space for you. I ran our commitment audit and noticed <span className="text-indigo-600 font-bold">{highRiskCounts} active plans</span> is looking a bit tight with some dense study sessions or overlapping windows nearby. 
-                          </p>
                           <p className="text-xs text-stone-600 leading-relaxed font-semibold">
-                            Please take a gentle breath—this is completely solvable. Let’s do some self-healing magic to slide your study blocks forwards automatically and ensure you have plenty of room to rest and prepare comfortably. Whenever you're ready, let's make it easy!
+                            Hey Adhiraj! Some of your tasks look very tight. Don't stress, we can easily fix it! Let's heal your schedule to make space.
                           </p>
 
                           <div className="pt-2 flex flex-wrap items-center gap-2">
@@ -236,8 +269,8 @@ export default function App() {
                       <div className="xl:col-span-2 space-y-6">
                         
                         {/* Focus lists: Urgent commitments risk metrics */}
-                        <div className="bg-white border border-stone-200/60 rounded-xl p-5 space-y-4 shadow-sm">
-                          <div className="flex items-center justify-between border-b border-stone-200/50 pb-3">
+                        <div className="bg-sky-50/70 border border-sky-200/60 rounded-xl p-5 space-y-4 shadow-sm">
+                          <div className="flex items-center justify-between border-b border-sky-200/40 pb-3">
                             <h3 className="text-xs font-bold font-mono text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
                               <CheckSquare className="w-4 h-4 text-indigo-600" />
                               Commitment Risk Trackers ({tasks.length})
@@ -260,7 +293,7 @@ export default function App() {
                                     : 'text-emerald-700 bg-emerald-50 border border-emerald-150');
 
                               return (
-                                <div key={task.id} className="p-3 bg-stone-50/50 border border-stone-150 rounded-lg flex items-center justify-between text-xs hover:border-indigo-100 hover:bg-stone-50/20 transition-all">
+                                <div key={task.id} className="p-3 bg-white/80 border border-sky-100 rounded-lg flex items-center justify-between text-xs hover:border-indigo-100 hover:bg-white transition-all">
                                   <div className="space-y-1">
                                     <p className="font-bold text-stone-800">{task.title}</p>
                                     <div className="flex items-center gap-3 text-[10px] text-stone-500 font-mono font-medium">
@@ -270,42 +303,31 @@ export default function App() {
                                     </div>
                                   </div>
 
-                                  <span className={`px-2 py-0.5 font-mono font-bold text-[10px] rounded shrink-0 ${pColor}`}>
-                                    {pct}% Prob
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {pct < 40 && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          triggerTaskHeal(task.id);
+                                        }}
+                                        className="bg-emerald-600 hover:bg-emerald-750 text-white text-[10px] uppercase font-mono font-bold px-2.5 py-1 rounded shadow-xs flex items-center gap-1 cursor-pointer transition-all hover:scale-102"
+                                        title="Click to heal this task"
+                                      >
+                                        <Activity className="w-3 h-3 text-white animate-pulse" />
+                                        <span>Heal</span>
+                                      </button>
+                                    )}
+                                    <span className={`px-2 py-0.5 font-mono font-bold text-[10px] rounded shrink-0 ${pColor}`}>
+                                      {pct}% Prob
+                                    </span>
+                                  </div>
                                 </div>
                               );
                             })}
                           </div>
                         </div>
 
-                        {/* Inline habits summary checklists */}
-                        <div className="bg-white border border-stone-200/60 rounded-xl p-5 space-y-4 shadow-sm">
-                          <div className="flex items-center justify-between border-b border-stone-200/55 pb-3">
-                            <h3 className="text-xs font-bold font-mono text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
-                              <Flame className="w-4 h-4 text-orange-500 fill-orange-500/10" />
-                              Active Routine Consistency Check
-                            </h3>
-                            <button
-                              onClick={() => setActiveTab('goals')}
-                              className="text-[10px] text-stone-400 hover:text-indigo-600 flex items-center gap-0.5 font-mono cursor-pointer font-bold"
-                            >
-                              Habits panel <ChevronRight className="w-3 h-3" />
-                            </button>
-                          </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                            {habits.slice(0, 4).map((h) => (
-                              <div key={h.id} className="p-3 bg-stone-50/50 border border-stone-150 rounded-lg flex items-center justify-between hover:border-indigo-100 hover:bg-stone-50/20 transition-all">
-                                <span className="font-semibold text-stone-800">{h.title}</span>
-                                <span className="font-mono font-bold text-[10px] text-orange-600 bg-orange-50 border border-orange-100 px-2.5 py-0.5 rounded flex items-center gap-1">
-                                  <Flame className="w-3 h-3 fill-current" />
-                                  {h.streak}d Streak
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
 
                         {/* Travel-Safe Calendar */}
                         <CalendarPanel 
@@ -349,6 +371,8 @@ export default function App() {
                     onTaskUpdated={fetchAppData} 
                     isLoading={isLoading} 
                     setIsLoading={setIsLoading} 
+                    healedTaskIds={healedTaskIds}
+                    onTriggerTaskHeal={triggerTaskHeal}
                   />
                 )}
 
@@ -393,6 +417,52 @@ export default function App() {
           <span className="text-gray-300">Synchronizing AI Schedules...</span>
         </div>
       )}
+
+      {/* Cheeky Message Modal */}
+      <AnimatePresence>
+        {cheekyMessage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCheekyMessage(null)}
+              className="absolute inset-0 bg-stone-900/40 backdrop-blur-xs"
+            />
+            
+            {/* Card */}
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              className="bg-amber-50 border border-amber-300 rounded-2xl max-w-lg w-full p-6 shadow-xl relative z-10 space-y-4"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-6 h-6 text-amber-600 animate-bounce" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono font-bold tracking-wider text-amber-700 uppercase">Goofy</span>
+                  <h3 className="text-sm font-extrabold text-stone-850 mt-1">A Mild Reality Check</h3>
+                  <div className="mt-3 text-xs text-stone-705 leading-relaxed font-semibold">
+                    {cheekyMessage}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={() => setCheekyMessage(null)}
+                  className="bg-amber-600 hover:bg-amber-700 border border-amber-650 text-white font-mono font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-all shadow-sm"
+                >
+                  I'm on it! Let's be productive &gt;
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

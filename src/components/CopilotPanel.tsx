@@ -126,8 +126,8 @@ export function CopilotPanel({ onSelfHealTriggered, isLoading, setIsLoading }: C
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-indigo-500 animate-pulse fill-indigo-500/10" />
           <div>
-            <h3 className="font-bold text-stone-800">AI Chief of Staff</h3>
-            <p className="text-[10px] text-stone-400 font-mono font-medium">Gemini 2.5 Pro Assistant Service</p>
+            <h3 className="font-bold text-stone-800">Goofy</h3>
+            <p className="text-[10px] text-stone-400 font-mono font-medium">Your AI Assistant</p>
           </div>
         </div>
         <button
