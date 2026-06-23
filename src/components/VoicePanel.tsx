@@ -25,18 +25,20 @@ export function VoicePanel({ onCommandExecuted, isLoading, setIsLoading }: Voice
     setTranscription(commandText);
     setReplyText(null);
     try {
-      const res = await fetch('/api/voice-command', {
+      const res = await fetch('/api/voice/command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: commandText })
+        body: JSON.stringify({ message: commandText, command: commandText, returnAudio: true })
       });
       const parsed = await res.json();
       
-      setReplyText(parsed.reply);
+      const textResponse = parsed.reply || parsed.text || parsed.feedback;
+      setReplyText(textResponse);
       onCommandExecuted(); // refresh task states
 
-      if (parsed.audioBase64) {
-        playBase64Mp3(parsed.audioBase64);
+      const audioStr = parsed.audioBase64 || parsed.base64Audio;
+      if (audioStr) {
+        playBase64Mp3(audioStr);
       }
     } catch (err) {
       console.error(err);

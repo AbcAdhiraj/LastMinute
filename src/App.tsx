@@ -174,25 +174,57 @@ export default function App() {
                 {activeTab === 'home' && (
                   <div className="space-y-6">
                     
-                    {/* Upper Alert Banner if high risk tasks exist (Supportive light theme rose banner) */}
+                    {/* AI Avatar Supportive Explanation Block */}
                     {highRiskCounts > 0 && (
                       <motion.div
                         initial={{ opacity: 0, scale: 0.99 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-rose-50 border border-rose-200/80 p-4 rounded-xl flex items-start gap-3 text-rose-800 shadow-sm"
+                        className="bg-stone-50 border border-stone-200/80 p-5 rounded-2xl flex flex-col md:flex-row items-start gap-4 text-stone-700 shadow-sm"
                       >
-                        <ShieldAlert className="w-5 h-5 mt-0.5 text-rose-500 shrink-0 animate-bounce" />
-                        <div className="space-y-1">
-                          <p className="text-xs font-bold leading-normal uppercase font-mono tracking-wider">Systemic Overload Risk Predicted</p>
-                          <p className="text-[11px] text-rose-700 leading-relaxed font-medium">
-                            You have **{highRiskCounts} active commitments** exhibiting elevated risk factors (e.g. overlapping commutes or dense study sessions). Let's take it page by page.
+                        {/* Avatar Column */}
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="relative">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-500 to-amber-400 p-[2px]">
+                              <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
+                                <Sparkles className="w-6 h-6 text-indigo-600 animate-pulse" />
+                              </div>
+                            </div>
+                            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                          </div>
+                          <div className="md:hidden">
+                            <span className="text-[10px] uppercase tracking-wider font-bold text-indigo-600 font-mono">Gemini Chief of Staff</span>
+                            <h4 className="text-xs font-extrabold text-stone-850">Your AI Assistant</h4>
+                          </div>
+                        </div>
+
+                        {/* Speech Bubble / Message Content */}
+                        <div className="flex-1 space-y-2">
+                          <div className="hidden md:block">
+                            <span className="text-[9px] uppercase tracking-wider font-bold text-indigo-600 font-mono">Gemini Chief of Staff</span>
+                          </div>
+                          
+                          <p className="text-xs text-stone-600 leading-relaxed font-medium">
+                            Hey there, <span className="font-bold text-stone-850">Adhiraj</span>! Just holding space for you. I ran our commitment audit and noticed <span className="text-indigo-600 font-bold">{highRiskCounts} active plans</span> is looking a bit tight with some dense study sessions or overlapping windows nearby. 
                           </p>
-                          <button
-                            onClick={handleTriggerGlobalHeal}
-                            className="bg-rose-100 border border-rose-200 text-[10px] text-rose-800 font-mono font-bold px-3 py-1.5 mt-2 rounded transition-all hover:bg-rose-200 cursor-pointer"
-                          >
-                            Execute Healing solver to auto-slide blocks &gt;
-                          </button>
+                          <p className="text-xs text-stone-600 leading-relaxed font-semibold">
+                            Please take a gentle breath—this is completely solvable. Let’s do some self-healing magic to slide your study blocks forwards automatically and ensure you have plenty of room to rest and prepare comfortably. Whenever you're ready, let's make it easy!
+                          </p>
+
+                          <div className="pt-2 flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={handleTriggerGlobalHeal}
+                              className="bg-indigo-600 hover:bg-indigo-700 border border-indigo-650 text-[10px] text-white font-mono font-bold px-4 py-2 rounded-lg transition-all shadow-sm hover:translate-y-[-0.5px] active:translate-y-0 cursor-pointer flex items-center gap-1"
+                            >
+                              <span>Heal my calendar & commitments</span>
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => setActiveTab('inbox')}
+                              className="bg-white border border-stone-200 hover:bg-stone-50 text-[10px] text-stone-600 font-mono font-bold px-3 py-2 rounded-lg transition-all cursor-pointer"
+                            >
+                              Review active commitments
+                            </button>
+                          </div>
                         </div>
                       </motion.div>
                     )}
@@ -203,24 +235,6 @@ export default function App() {
                       {/* Left and mid block columns */}
                       <div className="xl:col-span-2 space-y-6">
                         
-                        {/* Summary overview widgets stats */}
-                        {analytics && (
-                          <div className="grid grid-cols-3 gap-4">
-                            <div className="bg-white p-4 rounded-xl border border-stone-200/60 space-y-1 hover:border-stone-300 transition-all shadow-sm">
-                              <span className="text-[9px] font-bold font-mono uppercase text-stone-400 block tracking-wider">Productivity Health</span>
-                              <span className="text-xl font-bold font-mono text-indigo-600">{analytics.productivityScore}/100</span>
-                            </div>
-                            <div className="bg-white p-4 rounded-xl border border-stone-200/60 space-y-1 hover:border-stone-300 transition-all shadow-sm">
-                              <span className="text-[9px] font-bold font-mono uppercase text-stone-400 block tracking-wider">Completion Rate</span>
-                              <span className="text-xl font-bold font-mono text-emerald-600">{analytics.completionRate}%</span>
-                            </div>
-                            <div className="bg-white p-4 rounded-xl border border-stone-200/60 space-y-1 hover:border-stone-300 transition-all shadow-sm">
-                              <span className="text-[9px] font-bold font-mono uppercase text-stone-400 block tracking-wider">Focus Budget</span>
-                              <span className="text-xl font-bold font-mono text-stone-700">{analytics.deepWorkHours}h Slot</span>
-                            </div>
-                          </div>
-                        )}
-
                         {/* Focus lists: Urgent commitments risk metrics */}
                         <div className="bg-white border border-stone-200/60 rounded-xl p-5 space-y-4 shadow-sm">
                           <div className="flex items-center justify-between border-b border-stone-200/50 pb-3">
@@ -267,7 +281,7 @@ export default function App() {
 
                         {/* Inline habits summary checklists */}
                         <div className="bg-white border border-stone-200/60 rounded-xl p-5 space-y-4 shadow-sm">
-                          <div className="flex items-center justify-between border-b border-stone-200/50 pb-3">
+                          <div className="flex items-center justify-between border-b border-stone-200/55 pb-3">
                             <h3 className="text-xs font-bold font-mono text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
                               <Flame className="w-4 h-4 text-orange-500 fill-orange-500/10" />
                               Active Routine Consistency Check
@@ -292,6 +306,14 @@ export default function App() {
                             ))}
                           </div>
                         </div>
+
+                        {/* Travel-Safe Calendar */}
+                        <CalendarPanel 
+                          events={calendarEvents} 
+                          onEventCreated={fetchAppData} 
+                          isLoading={isLoading} 
+                          setIsLoading={setIsLoading} 
+                        />
 
                       </div>
 
@@ -330,15 +352,7 @@ export default function App() {
                   />
                 )}
 
-                {/* 4. TRAVEL-SAFE CALENDAR */}
-                {activeTab === 'calendar' && (
-                  <CalendarPanel 
-                    events={calendarEvents} 
-                    onEventCreated={fetchAppData} 
-                    isLoading={isLoading} 
-                    setIsLoading={setIsLoading} 
-                  />
-                )}
+
 
                 {/* 5. GOALS & HABITS MILESTONES */}
                 {activeTab === 'goals' && (

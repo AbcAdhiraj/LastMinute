@@ -220,10 +220,26 @@ app.get('/api/profile', (req: Request, res: Response) => {
   try {
     const db = readDb();
     const analytics = calculateAnalyticsModel(db);
+    const tasksWithRisk = db.tasks.map(t => {
+      const risk = db.riskAssessments.find(r => r.taskId === t.id);
+      return {
+        ...t,
+        risk: risk || {
+          taskId: t.id,
+          probability: 80,
+          status: 'on_track' as const,
+          reason: "Estimated workload is low relative to remaining duration.",
+          calculatedAt: new Date().toISOString()
+        }
+      };
+    });
     res.json({
       userProfile: db.userProfile,
       analytics,
-      recentNotifications: db.notifications.slice(0, 5)
+      recentNotifications: db.notifications.slice(0, 5),
+      tasks: tasksWithRisk,
+      goals: db.goals,
+      habits: db.habits
     });
   } catch (err) {
     handleError(res, err, "Failed to get profile data");
@@ -1149,9 +1165,10 @@ Provide exact statistics. For example: "Starting Operating Systems tonight incre
 // ==========================================
 // 9. FEATURE 7: VOICE PRODUCTIVITY ASSISTANT
 // ==========================================
-app.post('/api/voice/command', async (req: Request, res: Response) => {
+const handleVoiceCommand = async (req: Request, res: Response) => {
   try {
-    const { message, returnAudio } = req.body;
+    const message = req.body.message || req.body.command;
+    const returnAudio = req.body.returnAudio;
     if (!message) return res.status(400).json({ error: "Missing voiced message string." });
 
     const db = readDb();
@@ -1169,7 +1186,7 @@ app.post('/api/voice/command', async (req: Request, res: Response) => {
       } else {
         feedback = `Voice Command Received: "${message}". Processed command successfully and scheduled dynamic buffers in your background dashboard.`;
       }
-      return res.json({ text: feedback, base64Audio });
+      return res.json({ text: feedback, reply: feedback, feedback: feedback, base64Audio });
     }
 
     // AI MODE voice command solver
@@ -1306,12 +1323,15 @@ Format the response strictly to JSON:
       }
     }
 
-    res.json({ text: feedback, base64Audio });
+    res.json({ text: feedback, reply: feedback, feedback: feedback, base64Audio, audioBase64: base64Audio });
 
   } catch (err) {
     handleError(res, err, "Voice assistant parsing error");
   }
-});
+};
+
+app.post('/api/voice/command', handleVoiceCommand);
+app.post('/api/voice-command', handleVoiceCommand);
 
 
 // ==========================================

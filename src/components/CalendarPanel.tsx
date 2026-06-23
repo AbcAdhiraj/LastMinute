@@ -93,10 +93,10 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="space-y-4">
       
       {/* Timeline calendar agenda list */}
-      <div className="lg:col-span-2 space-y-4">
+      <div className="space-y-4">
         
         <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-stone-200/85 shadow-xs">
           <div>
@@ -289,91 +289,6 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
             );
           })}
         </div>
-      </div>
-
-      {/* Right column: Google Maps travel estimation tool */}
-      <div className="bg-white border border-stone-200/80 rounded-xl p-5 h-fit text-stone-605 space-y-4 shadow-sm">
-        
-        <div className="border-b border-stone-200/60 pb-3">
-          <span className="text-[9px] font-mono font-bold tracking-wider text-indigo-705 uppercase flex items-center gap-1">
-            <Compass className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
-            Travel-Aware Google Maps API
-          </span>
-          <h3 className="text-xs font-bold text-stone-850 mt-1">Commute Delay Estimator</h3>
-        </div>
-
-        <div className="space-y-3 text-xs">
-          <div className="space-y-1 flex flex-col">
-            <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">Origin Location</label>
-            <input
-              type="text"
-              value={origin}
-              onChange={(e) => setOrigin(e.target.value)}
-              className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-850 focus:outline-none focus:border-indigo-500/50 font-semibold"
-            />
-          </div>
-
-          <div className="space-y-1 flex flex-col">
-            <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">Destination Meeting</label>
-            <input
-              type="text"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-850 focus:outline-none focus:border-indigo-500/50 font-semibold"
-            />
-          </div>
-
-          <button
-            onClick={queryTransitDetails}
-            disabled={mapsLoading}
-            className="w-full bg-stone-50 border border-stone-200 hover:bg-stone-100/80 py-2.5 rounded-lg text-xs font-bold font-mono flex items-center justify-center gap-2 cursor-pointer transition-colors text-stone-700"
-          >
-            {mapsLoading ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                Querying Matrix...
-              </>
-            ) : (
-              <>
-                <Eye className="w-3.5 h-3.5 text-indigo-600" />
-                Query Transit Estimates
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Travel matrix results block */}
-        {travelReport && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-stone-50 p-4 rounded-lg border border-stone-200 space-y-3 text-xs leading-normal shadow-xs"
-          >
-            <div className="flex items-center gap-2 border-b border-stone-200/80 pb-1.5 text-[10px] font-bold font-mono text-emerald-700 uppercase">
-              <Check className="w-4 h-4 text-emerald-600" />
-              <span>Route Diagnostics Completed</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-stone-600 font-bold">
-              <div>
-                <span className="text-stone-400 block text-[9px] font-bold">Distance</span>
-                <span className="text-stone-800 font-extrabold">{travelReport.travelDistanceMiles} Miles</span>
-              </div>
-              <div>
-                <span className="text-stone-400 block text-[9px] font-bold">Commute Duration</span>
-                <span className="text-stone-800 font-extrabold">{travelReport.travelDurationMinutes} Mins</span>
-              </div>
-            </div>
-
-            <div className="flex gap-2 bg-orange-50 border border-orange-150 p-2.5 rounded text-[10px] text-orange-850 font-semibold">
-              <AlertCircle className="w-4 h-4 mt-0.5 text-orange-500 shrink-0" />
-              <p className="leading-relaxed">
-                AI blocked <span className="font-bold underline text-orange-950">3:20 PM – 4:00 PM</span> prior to event start. Real-time maps estimate {Math.round(travelReport.predictedDelaysSeconds / 60)}m active corridor delays.
-              </p>
-            </div>
-          </motion.div>
-        )}
-
       </div>
 
     </div>

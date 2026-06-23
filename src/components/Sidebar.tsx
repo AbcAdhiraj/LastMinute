@@ -15,7 +15,6 @@ export function Sidebar({ activeTab, setActiveTab, unreadsCount, risksCount, sid
     { id: 'home', label: 'Home Dashboard', icon: Home },
     { id: 'inbox', label: 'Gmail Commitments', icon: Mail, badge: unreadsCount > 0 ? unreadsCount : undefined, badgeColor: 'bg-indigo-600' },
     { id: 'tasks', label: 'AI Risk Tracker', icon: CheckSquare, badge: risksCount > 0 ? risksCount : undefined, badgeColor: 'bg-rose-500' },
-    { id: 'calendar', label: 'Travel-Safe Calendar', icon: Calendar },
     { id: 'goals', label: 'Goals & Habits', icon: Target },
     { id: 'analytics', label: 'AI Productivity', icon: BarChart2 },
   ];
