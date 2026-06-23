@@ -33,6 +33,23 @@ export default function App() {
 
   const [healedTaskIds, setHealedTaskIds] = useState<string[]>([]);
   const [cheekyMessage, setCheekyMessage] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToastMessage(null);
+    setTimeout(() => {
+      setToastMessage(message);
+    }, 15);
+  };
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => {
+        setToastMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   const triggerTaskHeal = async (taskId: string) => {
     setIsLoading(true);
@@ -42,6 +59,7 @@ export default function App() {
       setHealedTaskIds(updatedHealed);
     }
     try {
+      showToast("Triggering predictive schedule self-heal workflow...");
       const res = await fetch('/api/self-heal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,12 +71,14 @@ export default function App() {
         if (updatedHealed.length > 1) {
           // Display cheeky message instead of standard alert
           setCheekyMessage(`Whoa there, Adhiraj! As the saying goes, 'a stitch in time saves nine' and 'an ounce of prevention is worth a pound of cure'! You are trying to shut the stable door after the horse has bolted. If you had put in the work earlier instead of trying to work miracles at the eleventh hour, you wouldn't be in this pickle! But no use crying over spilled milk—I've healed your schedule for this task, but let's make sure we face the music and don't make this a habit!`);
+          showToast("Healed calendar allocations with diagnostic accountability check!");
         } else {
-          alert(`Schedule auto-healing for this task completed successfully! Associated study blocks on your calendar have been reallocated.`);
+          showToast("Schedule auto-healing completed! Focus blocks reallocated successfully.");
         }
       }
     } catch (err) {
       console.error(err);
+      showToast("Self-heal operation encountered an error");
     } finally {
       setIsLoading(false);
     }
@@ -98,6 +118,7 @@ export default function App() {
 
   const handleTriggerGlobalHeal = async () => {
     setIsLoading(true);
+    showToast("Initializing Emergency System-Wide Self-Heal operation...");
     try {
       const res = await fetch('/api/self-heal', {
         method: 'POST',
@@ -106,11 +127,12 @@ export default function App() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(`Schedule auto-healing completed successfully! ${data.healedTasksCount || 1} pending study blocks have been optimally recalculated to safeguard deadline completions.`);
+        showToast(`Heal completed! Re-allocated study sessions to safe zones.`);
         await fetchAppData();
       }
     } catch (err) {
       console.error(err);
+      showToast("Global self-heal failed to execute");
     } finally {
       setIsLoading(false);
     }
@@ -126,12 +148,7 @@ export default function App() {
     : "your active plans";
 
   return (
-    <div className="flex h-screen bg-[#faf9f6] overflow-hidden text-stone-750 relative font-sans">
-      
-      {/* Decorative Aura Ambient Glow Effects with supportive, soft light amber and blue tones */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-100/40 rounded-full blur-[130px] pointer-events-none z-0" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-amber-100/30 rounded-full blur-[130px] pointer-events-none z-0" />
-      <div className="absolute top-[35%] right-[15%] w-[40%] h-[40%] bg-indigo-50/30 rounded-full blur-[120px] pointer-events-none z-0" />
+    <div className="flex h-screen bg-[#f1f4df] overflow-hidden text-black relative font-sans">
       
       {/* Sidebar Navigation */}
       <Sidebar 
@@ -146,36 +163,36 @@ export default function App() {
       {/* Main Body */}
       <main className="flex-1 flex flex-col min-w-0 overflow-y-auto z-10 relative">
         
-        {/* Top bar header - fully responsive with touch-friendly wrap controls */}
-        <header className="min-h-16 border-b border-stone-200/80 bg-white/70 backdrop-blur-md px-4 sm:px-8 py-2.5 flex flex-wrap gap-3 items-center justify-between shrink-0">
+        {/* Top bar header - Neo-brutalist style */}
+        <header className="min-h-16 border-b-4 border-black bg-white px-4 sm:px-8 py-2.5 flex flex-wrap gap-3 items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             {/* Burger Trigger for mobile drawers */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg border border-stone-200 hover:bg-stone-100 text-stone-605 cursor-pointer mr-1"
+              className="lg:hidden p-2 rounded border-2 border-black hover:bg-neutral-100 text-black cursor-pointer mr-1 animate-pulse"
               title="Open Navigation"
             >
-              <Menu className="w-5 h-5 text-stone-500" />
+              <Menu className="w-5 h-5 text-black" />
             </button>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-xs font-semibold text-stone-500 font-mono hidden sm:inline-block">adhirajtiwari01@gmail.com</span>
-              <span className="text-stone-300 hidden sm:inline-block">•</span>
-              <span className="text-xs text-stone-500 font-semibold font-mono flex items-center gap-1.5">
-                <Compass className="w-3.5 h-3.5 text-indigo-500 animate-spin-slow" />
+              <span className="text-xs font-bold text-black/60 font-mono hidden sm:inline-block">adhirajtiwari01@gmail.com</span>
+              <span className="text-black/30 hidden sm:inline-block">•</span>
+              <span className="text-xs text-black font-extrabold font-mono flex items-center gap-1.5 bg-[#dfbeff] px-3 py-1 rounded border-2 border-black neo-shadow-black-sm">
+                <Compass className="w-3.5 h-3.5 text-black animate-spin-slow" />
                 Active Target: IIT Kharagpur Semester Prep
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-3 ml-auto lg:ml-0">
-            {/* Quick corrective heal button */}
+            {/* Quick corrective heal button - Neo-brutalist punch */}
             <button
                onClick={handleTriggerGlobalHeal}
                disabled={isLoading}
-               className="bg-indigo-600 hover:bg-indigo-750 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center gap-1.5 shadow-sm shadow-indigo-600/10 transition-all font-mono cursor-pointer"
+               className="bg-[#ffa852] hover:bg-[#ff9a36] text-black font-black text-xs py-2 px-4 rounded border-2 border-black flex items-center gap-1.5 shadow-sm hover:translate-x-[1px] hover:translate-y-[1px] neo-shadow-black-sm transition-all font-mono cursor-pointer"
             >
-               <Activity className="w-3.5 h-3.5 text-indigo-100 animate-pulse" />
+               <Activity className="w-3.5 h-3.5 text-black animate-pulse" />
                <span className="hidden xs:inline">Emergency Self-Heal</span>
                <span className="xs:hidden">Heal</span>
             </button>
@@ -183,10 +200,10 @@ export default function App() {
             {/* Quick voice command modal launcher */}
             <button
               onClick={() => setActiveTab('voice')}
-              className={`p-2 rounded-lg border border-stone-200 hover:bg-stone-105 transition-colors cursor-pointer ${activeTab === 'voice' ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'text-stone-500'}`}
+              className={`p-2 rounded border-2 border-black transition-all duration-150 cursor-pointer ${activeTab === 'voice' ? 'bg-[#ff9ee1] text-black neo-shadow-black-sm translate-x-[1px] translate-y-[1px]' : 'bg-white hover:bg-neutral-50 text-black'}`}
               title="Voice Assistant Mode"
             >
-              <Mic className="w-4 h-4 text-indigo-500" />
+               <Mic className="w-4 h-4 text-black" />
             </button>
           </div>
         </header>
@@ -195,8 +212,8 @@ export default function App() {
         <div className="flex-1 p-4 sm:p-8 overflow-y-auto">
           {isLoading && !appInitialized ? (
             <div className="flex flex-col items-center justify-center h-full space-y-4">
-              <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin" />
-              <p className="text-xs text-stone-500 font-mono animate-pulse">Establishing secure calendar & commitment indexes...</p>
+              <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+              <p className="text-xs text-neutral-400 font-mono animate-pulse">Establishing secure calendar & commitment indexes...</p>
             </div>
           ) : (
             <AnimatePresence mode="wait">
@@ -217,43 +234,43 @@ export default function App() {
                       <motion.div
                         initial={{ opacity: 0, scale: 0.99 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-stone-50 border border-stone-200/80 p-5 rounded-2xl flex flex-col md:flex-row items-start gap-4 text-stone-700 shadow-sm"
+                        className="bg-[#fffccf] border-4 border-black p-5 rounded-xl flex flex-col md:flex-row items-start gap-4 text-black neo-shadow-black"
                       >
                         {/* Avatar Column */}
                         <div className="flex items-center gap-3 shrink-0">
                           <div className="relative">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-500 to-amber-400 p-[2px]">
+                            <div className="w-12 h-12 rounded-full bg-[#ff9ee1] p-[2px] border-2 border-black">
                               <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
-                                <Sparkles className="w-6 h-6 text-indigo-600 animate-pulse" />
+                                <Sparkles className="w-6 h-6 text-black animate-pulse" />
                               </div>
                             </div>
-                            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-black rounded-full"></span>
                           </div>
                           <div className="md:hidden">
-                            <span className="text-[10px] uppercase tracking-wider font-bold text-indigo-600 font-mono">Goofy</span>
-                            <h4 className="text-xs font-extrabold text-stone-850">Your AI Assistant</h4>
+                            <span className="text-[10px] uppercase tracking-wider font-extrabold text-black font-mono bg-white px-1 border border-black rounded">Goofy</span>
+                            <h4 className="text-xs font-black text-black">Your AI Assistant</h4>
                           </div>
                         </div>                         {/* Speech Bubble / Message Content */}
                         <div className="flex-1 space-y-2">
                           <div className="hidden md:block">
-                            <span className="text-[9px] uppercase tracking-wider font-bold text-indigo-600 font-mono">Goofy</span>
+                            <span className="text-[9px] uppercase tracking-wider font-extrabold text-black font-mono bg-white px-1.5 py-0.5 border-2 border-black rounded shadow-[1.5px_1.5px_0px_0px_#000000]">Goofy AI</span>
                           </div>
                           
-                          <p className="text-xs text-stone-600 leading-relaxed font-semibold">
+                          <p className="text-xs text-black/90 leading-relaxed font-extrabold">
                             Hey Adhiraj! Some of your tasks look very tight. Don't stress, we can easily fix it! Let's heal your schedule to make space.
                           </p>
 
                           <div className="pt-2 flex flex-wrap items-center gap-2">
                             <button
                               onClick={handleTriggerGlobalHeal}
-                              className="bg-indigo-600 hover:bg-indigo-700 border border-indigo-650 text-[10px] text-white font-mono font-bold px-4 py-2 rounded-lg transition-all shadow-sm hover:translate-y-[-0.5px] active:translate-y-0 cursor-pointer flex items-center gap-1"
+                              className="bg-[#b8f598] hover:bg-[#a3e480] border-2 border-black text-[10px] text-black font-mono font-black px-4 py-2 rounded transition-all neo-shadow-black-sm cursor-pointer flex items-center gap-1 active:translate-y-0.5"
                             >
                               <span>Heal my calendar & commitments</span>
-                              <ChevronRight className="w-3 h-3" />
+                              <ChevronRight className="w-3 h-3 stroke-[2.5px]" />
                             </button>
                             <button
                               onClick={() => setActiveTab('inbox')}
-                              className="bg-white border border-stone-200 hover:bg-stone-50 text-[10px] text-stone-600 font-mono font-bold px-3 py-2 rounded-lg transition-all cursor-pointer"
+                              className="bg-white border-2 border-black hover:bg-neutral-50 text-[10px] text-black font-mono font-black px-3 py-2 rounded transition-all cursor-pointer shadow-xs active:translate-y-0.5"
                             >
                               Review active commitments
                             </button>
@@ -269,15 +286,15 @@ export default function App() {
                       <div className="xl:col-span-2 space-y-6">
                         
                         {/* Focus lists: Urgent commitments risk metrics */}
-                        <div className="bg-sky-50/70 border border-sky-200/60 rounded-xl p-5 space-y-4 shadow-sm">
-                          <div className="flex items-center justify-between border-b border-sky-200/40 pb-3">
-                            <h3 className="text-xs font-bold font-mono text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
-                              <CheckSquare className="w-4 h-4 text-indigo-600" />
+                        <div className="bg-[#ffffff] border-4 border-black rounded-xl p-5 space-y-4 neo-shadow-black">
+                          <div className="flex items-center justify-between border-b-2 border-black pb-3">
+                            <h3 className="text-xs font-black font-mono text-black uppercase tracking-tight flex items-center gap-1.5">
+                              <CheckSquare className="w-4 h-4 text-black" />
                               Commitment Risk Trackers ({tasks.length})
                             </h3>
                             <button
                               onClick={() => setActiveTab('tasks')}
-                              className="text-[10px] text-stone-400 hover:text-indigo-600 flex items-center gap-0.5 font-mono cursor-pointer font-bold"
+                              className="text-[10px] bg-[#98e2ff] border-2 border-black rounded px-2 py-0.5 text-black flex items-center gap-0.5 font-mono cursor-pointer font-black hover:bg-[#85d3f0] active:translate-y-0.5"
                             >
                               Planner View <ChevronRight className="w-3 h-3" />
                             </button>
@@ -287,17 +304,17 @@ export default function App() {
                             {tasks.slice(0, 3).map((task) => {
                               const pct = task.risk?.probability ?? 80;
                               const pColor = pct < 45 
-                                ? 'text-rose-700 bg-rose-50 border border-rose-100' 
+                                ? 'text-black bg-[#ff6161] border-2 border-black' 
                                 : (pct < 75 
-                                    ? 'text-amber-700 bg-amber-50 border border-amber-100' 
-                                    : 'text-emerald-700 bg-emerald-50 border border-emerald-150');
+                                    ? 'text-black bg-[#ffa852] border-2 border-black' 
+                                    : 'text-black bg-[#b8f598] border-2 border-black');
 
                               return (
-                                <div key={task.id} className="p-3 bg-white/80 border border-sky-100 rounded-lg flex items-center justify-between text-xs hover:border-indigo-100 hover:bg-white transition-all">
+                                <div key={task.id} className="p-3 bg-white border-2 border-black rounded-lg flex items-center justify-between text-xs hover:bg-[#fff9e6] transition-all duration-100 neo-shadow-black-sm">
                                   <div className="space-y-1">
-                                    <p className="font-bold text-stone-800">{task.title}</p>
-                                    <div className="flex items-center gap-3 text-[10px] text-stone-500 font-mono font-medium">
-                                      <span>DL: {new Date(task.deadline).toLocaleDateString()}</span>
+                                    <p className="font-extrabold text-[#000000]">{task.title}</p>
+                                    <div className="flex items-center gap-3 text-[10px] text-black/60 font-mono font-bold">
+                                      <span>DL: <span className="text-black font-extrabold underline">{new Date(task.deadline).toLocaleDateString()}</span></span>
                                       <span>•</span>
                                       <span>{task.remainingEffort} / {task.estimatedEffort}h remaining</span>
                                     </div>
@@ -310,14 +327,14 @@ export default function App() {
                                           e.stopPropagation();
                                           triggerTaskHeal(task.id);
                                         }}
-                                        className="bg-emerald-600 hover:bg-emerald-750 text-white text-[10px] uppercase font-mono font-bold px-2.5 py-1 rounded shadow-xs flex items-center gap-1 cursor-pointer transition-all hover:scale-102"
+                                        className="bg-[#ffe555] hover:bg-[#ffd111] text-black text-[10px] uppercase font-mono font-black border-2 border-black px-2.5 py-1 rounded shadow-sm flex items-center gap-1 cursor-pointer transition-all active:translate-y-0.5"
                                         title="Click to heal this task"
                                       >
-                                        <Activity className="w-3 h-3 text-white animate-pulse" />
+                                        <Activity className="w-3 h-3 text-black animate-pulse" />
                                         <span>Heal</span>
                                       </button>
                                     )}
-                                    <span className={`px-2 py-0.5 font-mono font-bold text-[10px] rounded shrink-0 ${pColor}`}>
+                                    <span className={`px-2 py-0.5 font-mono font-black text-[10px] rounded shrink-0 ${pColor}`}>
                                       {pct}% Prob
                                     </span>
                                   </div>
@@ -335,6 +352,7 @@ export default function App() {
                           onEventCreated={fetchAppData} 
                           isLoading={isLoading} 
                           setIsLoading={setIsLoading} 
+                          onShowToast={showToast}
                         />
 
                       </div>
@@ -361,6 +379,7 @@ export default function App() {
                     onCommitmentImported={fetchAppData} 
                     isLoading={isLoading} 
                     setIsLoading={setIsLoading} 
+                    onShowToast={showToast}
                   />
                 )}
 
@@ -373,6 +392,7 @@ export default function App() {
                     setIsLoading={setIsLoading} 
                     healedTaskIds={healedTaskIds}
                     onTriggerTaskHeal={triggerTaskHeal}
+                    onShowToast={showToast}
                   />
                 )}
 
@@ -386,6 +406,7 @@ export default function App() {
                     onGoalHabitUpdated={fetchAppData} 
                     isLoading={isLoading} 
                     setIsLoading={setIsLoading} 
+                    onShowToast={showToast}
                   />
                 )}
 
@@ -412,9 +433,9 @@ export default function App() {
 
       {/* Loading Block HUD Overlay during calculation spikes */}
       {isLoading && appInitialized && (
-        <div className="fixed bottom-6 right-6 bg-[#000000]/90 border border-indigo-500/20 backdrop-blur-md px-4 py-3 rounded-xl flex items-center gap-3 z-50 text-xs font-mono shadow-2xl">
-          <RefreshCw className="w-4 h-4 text-indigo-400 animate-spin" />
-          <span className="text-gray-300">Synchronizing AI Schedules...</span>
+        <div className="fixed bottom-6 right-6 bg-[#ffe555] border-2 border-black px-4 py-3 rounded flex items-center gap-3 z-50 text-xs font-mono font-bold text-black shadow-sm">
+          <RefreshCw className="w-4 h-4 text-black animate-spin" />
+          <span>Synchronizing AI Schedules...</span>
         </div>
       )}
 
@@ -428,7 +449,7 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setCheekyMessage(null)}
-              className="absolute inset-0 bg-stone-900/40 backdrop-blur-xs"
+              className="absolute inset-0 bg-black/60"
             />
             
             {/* Card */}
@@ -436,16 +457,16 @@ export default function App() {
               initial={{ scale: 0.95, y: 15, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.95, y: 15, opacity: 0 }}
-              className="bg-amber-50 border border-amber-300 rounded-2xl max-w-lg w-full p-6 shadow-xl relative z-10 space-y-4"
+              className="bg-[#dfbeff] border-4 border-black rounded-xl max-w-lg w-full p-6 relative z-10 space-y-4 neo-shadow-black text-black"
             >
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-6 h-6 text-amber-600 animate-bounce" />
+                <div className="w-12 h-12 rounded-full bg-white border-2 border-black flex items-center justify-center shrink-0">
+                  <Sparkles className="w-6 h-6 text-black animate-bounce" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-mono font-bold tracking-wider text-amber-700 uppercase">Goofy</span>
-                  <h3 className="text-sm font-extrabold text-stone-850 mt-1">A Mild Reality Check</h3>
-                  <div className="mt-3 text-xs text-stone-705 leading-relaxed font-semibold">
+                  <span className="text-[10px] font-mono font-extrabold tracking-wider text-black uppercase bg-white px-1.5 py-0.5 border-2 border-black rounded shadow-[1.5px_1.5px_0px_0px_#000000]">Goofy AI</span>
+                  <h3 className="text-sm font-black text-black mt-2">A Mild Reality Check</h3>
+                  <div className="mt-3 text-xs text-black font-extrabold leading-relaxed">
                     {cheekyMessage}
                   </div>
                 </div>
@@ -454,13 +475,31 @@ export default function App() {
               <div className="flex justify-end pt-2">
                 <button
                   onClick={() => setCheekyMessage(null)}
-                  className="bg-amber-600 hover:bg-amber-700 border border-amber-650 text-white font-mono font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-all shadow-sm"
+                  className="bg-[#b8f598] hover:bg-[#a0e080] text-black border-2 border-black font-mono font-black text-xs px-4 py-2 rounded shadow-xs cursor-pointer transition-all active:translate-y-0.5"
                 >
                   I'm on it! Let's be productive &gt;
                 </button>
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* 3-Second Action Notification Popup Toast */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.92, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
+            exit={{ opacity: 0, y: 30, scale: 0.92, x: "-50%" }}
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-55 bg-[#b8f598] border-4 border-black px-6 py-3.5 rounded shadow-xl flex items-center gap-3.5 font-mono text-xs text-black max-w-sm sm:max-w-md w-full neo-shadow-black"
+          >
+            <div className="w-3.5 h-3.5 rounded-full bg-black shrink-0 animate-ping" />
+            <div className="flex-1">
+              <span className="text-[10px] text-black font-black uppercase tracking-wider block font-mono">Action Executed</span>
+              <p className="font-extrabold text-black mt-0.5 leading-snug">{toastMessage}</p>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 

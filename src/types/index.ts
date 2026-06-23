@@ -125,6 +125,7 @@ export interface Analytics {
     completed: number;
     missed: number;
     deepWork: number;
+    probability?: number;
   }[];
   hourlyProductivity: {
     hour: string; // E.g., "09:00", "14:00"

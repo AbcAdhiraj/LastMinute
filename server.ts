@@ -119,14 +119,18 @@ function calculateAnalyticsModel(db: any): Analytics {
     { hour: "22:00", score: 75 }
   ];
 
+  const averageProbability = db.riskAssessments && db.riskAssessments.length > 0
+    ? Math.round(db.riskAssessments.reduce((sum: number, r: any) => sum + r.probability, 0) / db.riskAssessments.length)
+    : 85;
+
   const weeklyTrends = [
-    { week: "Mon", completed: 3, missed: 0, deepWork: 4 },
-    { week: "Tue", completed: 2, missed: 1, deepWork: 2 },
-    { week: "Wed", completed: 4, missed: 0, deepWork: 6 },
-    { week: "Thu", completed: 1, missed: 0, deepWork: 3 },
-    { week: "Fri", completed: 5, missed: 1, deepWork: 5 },
-    { week: "Sat", completed: 2, missed: 0, deepWork: 2 },
-    { week: "Sun", completed: 1, missed: 0, deepWork: 1 }
+    { week: "Mon", completed: 3, missed: 0, deepWork: 4, probability: Math.max(30, Math.min(100, averageProbability - 8)) },
+    { week: "Tue", completed: 2, missed: 1, deepWork: 2, probability: Math.max(30, Math.min(100, averageProbability - 12)) },
+    { week: "Wed", completed: 4, missed: 0, deepWork: 6, probability: Math.max(30, Math.min(100, averageProbability + 4)) },
+    { week: "Thu", completed: 1, missed: 0, deepWork: 3, probability: Math.max(30, Math.min(100, averageProbability - 2)) },
+    { week: "Fri", completed: 5, missed: 1, deepWork: 5, probability: Math.max(30, Math.min(100, averageProbability + 8)) },
+    { week: "Sat", completed: 2, missed: 0, deepWork: 2, probability: Math.max(30, Math.min(100, averageProbability + 1)) },
+    { week: "Sun", completed: 1, missed: 0, deepWork: 1, probability: Math.max(30, Math.min(100, averageProbability + 5)) }
   ];
 
   return {

@@ -1,29 +1,43 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;650;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
 body {
-  background-color: #faf9f6;
+  background-color: #f1f4df;
   font-family: var(--font-sans);
-  color: #3c3935;
+  color: #1a1a1a;
 }
 
-/* Custom scrollbar styling for a soft, tactile, high-end warm light feel */
+/* Neo-brutalist custom styled shadows and micro-interactive patterns */
+.neo-shadow-black {
+  box-shadow: 4px 4px 0px 0px #000000;
+}
+
+.neo-shadow-black-lg {
+  box-shadow: 6px 6px 0px 0px #000000;
+}
+
+.neo-shadow-black-sm {
+  box-shadow: 2.5px 2.5px 0px 0px #000000;
+}
+
+/* Custom scrollbar styling for a beautiful high contrast appearance */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f1f4df;
+  border-left: 2px solid #000000;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(120, 113, 108, 0.15);
-  border-radius: 9999px;
+  background: #000000;
+  border: 2px solid #f1f4df;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 113, 108, 0.3);
+  background: #222222;
 }

@@ -12,11 +12,11 @@ interface SidebarProps {
 
 export function Sidebar({ activeTab, setActiveTab, unreadsCount, risksCount, sidebarOpen, setSidebarOpen }: SidebarProps) {
   const menuItems = [
-    { id: 'home', label: 'Home Dashboard', icon: Home },
-    { id: 'inbox', label: 'Gmail Commitments', icon: Mail, badge: unreadsCount > 0 ? unreadsCount : undefined, badgeColor: 'bg-indigo-600' },
-    { id: 'tasks', label: 'AI Risk Tracker', icon: CheckSquare, badge: risksCount > 0 ? risksCount : undefined, badgeColor: 'bg-rose-500' },
-    { id: 'goals', label: 'Goals & Habits', icon: Target },
-    { id: 'analytics', label: 'AI Productivity', icon: BarChart2 },
+    { id: 'home', label: 'Home Dashboard', icon: Home, bg: 'bg-[#fff066]' },
+    { id: 'inbox', label: 'Gmail Commitments', icon: Mail, badge: unreadsCount > 0 ? unreadsCount : undefined, badgeColor: 'bg-[#ff66b2]', bg: 'bg-[#98e2ff]' },
+    { id: 'tasks', label: 'AI Risk Tracker', icon: CheckSquare, badge: risksCount > 0 ? risksCount : undefined, badgeColor: 'bg-[#ff4444]', bg: 'bg-[#ff94e0]' },
+    { id: 'goals', label: 'Goals & Habits', icon: Target, bg: 'bg-[#b8f598]' },
+    { id: 'analytics', label: 'AI Productivity', icon: BarChart2, bg: 'bg-[#dfbeff]' },
   ];
 
   return (
@@ -25,42 +25,42 @@ export function Sidebar({ activeTab, setActiveTab, unreadsCount, risksCount, sid
       {sidebarOpen && (
         <div 
           onClick={() => setSidebarOpen(false)}
-          className="lg:hidden fixed inset-0 bg-stone-900/30 backdrop-blur-sm z-30 transition-opacity duration-300"
+          className="lg:hidden fixed inset-0 bg-[#000000]/40 backdrop-blur-xs z-30 transition-opacity duration-200"
         />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 bg-stone-50/95 border-r border-stone-200/80 flex flex-col justify-between h-full select-none text-stone-600 z-40 w-64 transform ${
+      <aside className={`fixed inset-y-0 left-0 bg-[#fbf9f4] border-r-4 border-black flex flex-col justify-between h-full select-none text-black z-40 w-64 transform ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } lg:translate-x-0 lg:static transition-transform duration-300 ease-in-out`}>
+      } lg:translate-x-0 lg:static transition-transform duration-250 ease-in-out`}>
         <div className="flex flex-col">
-          {/* App Title block */}
-          <div className="p-6 border-b border-stone-200/80 flex items-center justify-between">
+          {/* App Title block - styled with bold neo-brutalist pop colors */}
+          <div className="p-5 border-b-4 border-black flex items-center justify-between bg-[#fff582]">
             <div className="flex items-center gap-2">
-              <span className="p-1.5 bg-indigo-50 border border-indigo-100 rounded-md text-indigo-600 shadow-sm">
-                <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" />
+              <span className="p-1.5 bg-black text-[#ffffff] border-2 border-black rounded-sm shadow-sm">
+                <Sparkles className="w-5 h-5 text-[#fbee72] fill-[#fbee72]/20" />
               </span>
               <div>
-                <h1 className="font-bold text-stone-850 text-sm tracking-wide uppercase">Life Saver</h1>
-                <span className="text-[10px] text-stone-400 font-semibold font-mono uppercase">Goofy</span>
+                <h1 className="font-extrabold text-[#000000] text-base tracking-tight uppercase">Life Saver</h1>
+                <span className="text-[10px] text-black font-extrabold font-mono uppercase bg-[#ffffff] border border-black px-1 rounded">GOOFY V2</span>
               </div>
             </div>
-            <div className="flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
-              <span className="text-[9px] text-emerald-600 font-bold font-mono">LIVE</span>
+            <div className="flex items-center gap-1 bg-[#ffffff] px-2 py-0.5 rounded border-2 border-black">
+              <span className="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-ping" />
+              <span className="text-[9px] text-[#000000] font-black font-mono">LIVE</span>
             </div>
           </div>
 
           {/* User Workspace label */}
-          <div className="px-6 py-4">
-            <span className="text-[10px] font-mono tracking-wider font-bold text-stone-400 uppercase">Workspace</span>
-            <div className="mt-1 flex items-center gap-2 bg-stone-200/40 px-3 py-1.5 rounded-md border border-stone-200/50 text-xs">
-              <span className="w-4 h-4 bg-indigo-100 border border-indigo-200/50 rounded-full flex items-center justify-center text-[10px] font-bold text-indigo-700">A</span>
-              <span className="font-semibold text-stone-700">Adhiraj's Space</span>
+          <div className="px-5 py-4 border-b-2 border-black/80">
+            <span className="text-[10px] font-mono tracking-wider font-extrabold text-black/60 uppercase">Workspace</span>
+            <div className="mt-1 flex items-center gap-2 bg-[#ffffff] px-3 py-1.5 rounded border-2 border-black text-xs neo-shadow-black-sm">
+              <span className="w-5 h-5 bg-[#ff9ee1] border border-black rounded-full flex items-center justify-center text-[10px] font-black text-black font-mono">A</span>
+              <span className="font-bold text-black">Adhiraj's Space</span>
             </div>
           </div>
 
           {/* Navigation list */}
-          <nav className="px-3 space-y-1">
+          <nav className="px-3 py-4 space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -71,18 +71,18 @@ export function Sidebar({ activeTab, setActiveTab, unreadsCount, risksCount, sid
                     setActiveTab(item.id);
                     setSidebarOpen(false); // Auto close on mobile click
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold tracking-tight transition-all duration-150 group ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded border-2 border-black text-xs font-extrabold tracking-tight transition-all duration-150 ${
                     isActive
-                      ? 'bg-indigo-500/10 text-indigo-750 border border-indigo-500/15 shadow-sm font-bold'
-                      : 'text-stone-500 hover:bg-stone-200/40 hover:text-stone-800 border border-transparent'
+                      ? `${item.bg} text-[#000000] neo-shadow-black scale-102 translate-x-[1px] translate-y-[-1px]`
+                      : 'text-black/80 hover:bg-[#ffffff] hover:neo-shadow-black'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon className={`w-4 h-4 transition-transform group-hover:scale-105 ${isActive ? 'text-indigo-600' : 'text-stone-400 group-hover:text-stone-500'}`} />
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-[#000000] stroke-[2.5px]' : 'text-black/60'}`} />
                     <span>{item.label}</span>
                   </div>
                   {item.badge !== undefined && (
-                    <span className={`${item.badgeColor} text-[10px] font-mono font-bold text-white px-1.5 py-0.5 rounded-full inline-block min-w-4 text-center border border-white/10`}>
+                    <span className={`${item.badgeColor} text-[10px] font-mono font-black text-[#ffffff] px-2 py-0.5 rounded border border-black`}>
                       {item.badge}
                     </span>
                   )}
@@ -92,29 +92,29 @@ export function Sidebar({ activeTab, setActiveTab, unreadsCount, risksCount, sid
           </nav>
         </div>
 
-        <div className="p-4 border-t border-stone-200/80 space-y-3">
-          {/* Context banner inside sidebar (Now a supportive, warm advice box) */}
-          <div className="bg-amber-50/50 p-3 rounded-lg border border-amber-100/80 text-[11px] leading-relaxed">
-            <div className="flex items-center gap-1.5 text-amber-705 font-bold mb-1">
-              <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-amber-800">Gentle Reminder</span>
+        <div className="p-4 border-t-4 border-black space-y-3 bg-[#e4f3a2]/40">
+          {/* Context banner inside sidebar (Now a supportive, warm Advice box) */}
+          <div className="bg-[#ffa852] p-3 rounded border-2 border-black text-[11px] leading-relaxed neo-shadow-black-sm text-[#000000]">
+            <div className="flex items-center gap-1.5 font-extrabold mb-1">
+              <AlertCircle className="w-3.5 h-3.5 text-black" />
+              <span className="uppercase text-[9px] font-mono tracking-wide font-black">Gentle Reminder</span>
             </div>
-            <p className="text-stone-500 font-medium leading-relaxed">
-              Operating Systems prep needs 6 hours, with 3 hours currently allocated. Take a breath and let's <span className="text-indigo-600 font-bold hover:underline cursor-pointer">Heal</span> to fit this in safely.
+            <p className="font-bold text-black/90 leading-tight">
+              Operating Systems prep needs 6 hours, with 3 hours currently allocated. Take a breath and let's <span className="underline font-black hover:text-white cursor-pointer select-none">Heal</span> to fit this in safely.
             </p>
           </div>
 
           {/* Footer profile info in clean colors */}
-          <div className="flex items-center gap-2 px-2">
+          <div className="flex items-center gap-2.5 px-1 bg-white p-2 rounded border-2 border-black neo-shadow-black-sm">
             <img
               src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256"
               alt="User profile mini"
-              className="w-7 h-7 rounded-full object-cover border border-stone-200"
+              className="w-8 h-8 rounded-full object-cover border border-black shadow-xs shrink-0"
               referrerPolicy="no-referrer"
             />
             <div className="min-w-0">
-              <p className="text-xs font-bold text-stone-700 truncate">Adhiraj Tiwari</p>
-              <p className="text-[9px] font-mono text-stone-400 truncate">adhirajtiwari01@gmail.com</p>
+              <p className="text-xs font-black text-black truncate leading-none">Adhiraj Tiwari</p>
+              <p className="text-[9px] font-mono text-black/60 truncate mt-0.5">adhirajtiwari01@gmail.com</p>
             </div>
           </div>
         </div>

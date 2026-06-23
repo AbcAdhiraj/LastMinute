@@ -9,10 +9,12 @@ interface CalendarPanelProps {
   onEventCreated: () => void;
   isLoading: boolean;
   setIsLoading: (val: boolean) => void;
+  onShowToast?: (msg: string) => void;
 }
 
-export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading }: CalendarPanelProps) {
+export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading, onShowToast }: CalendarPanelProps) {
   const [data, setData] = useState<CalendarEvent[]>(events);
+  const [weekOffset, setWeekOffset] = useState(0);
   
   // Custom maps travel states
   const [origin, setOrigin] = useState('Home Studio');
@@ -55,6 +57,7 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
     if (!title) return;
 
     setIsLoading(true);
+    onShowToast?.(`Inserting custom calendar slot "${title}"...`);
     try {
       const res = await fetch('/api/calendar', {
         method: 'POST',
@@ -72,10 +75,14 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
       if (res.ok) {
         setTitle('');
         setShowAddEvent(false);
+        onShowToast?.(`Successfully created calendar slot "${title}"!`);
         onEventCreated();
+      } else {
+        onShowToast?.("Failed to create calendar slot.");
       }
     } catch (err) {
       console.error(err);
+      onShowToast?.("Failed to save calendar event due to connection issue.");
     } finally {
       setIsLoading(false);
     }
@@ -84,19 +91,24 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
   // Google Calendar integration
   const syncGoogleCalendar = async () => {
     setSyncingGoogle(true);
+    onShowToast?.("Contacting Google OAuth credentials helper...");
     try {
       const token = getAccessToken();
       if (!token) {
         const resSig = await googleSignIn();
         if (resSig) {
           setGcalConnected(true);
+          onShowToast?.("Google Account connected. Retrieving calendar agendas...");
           await fetchAndSyncEvents(resSig.accessToken);
+        } else {
+          onShowToast?.("Google connection cancelled.");
         }
       } else {
         await fetchAndSyncEvents(token);
       }
     } catch (err) {
       console.error("Failed to sync Google Calendar:", err);
+      onShowToast?.("Authentication or connection block with Google Calendar service.");
     } finally {
       setSyncingGoogle(false);
     }
@@ -149,26 +161,44 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
     });
 
     if (response.ok) {
-      alert("Successfully connected Google Calendar & updated entire schedule according to task priorities!");
-      onEventCreated(); // refresh dashboard App state
+      onShowToast?.("Successfully synced Google Calendar and optimized study windows!");
+      onEventCreated(); // refresh parent state
+    } else {
+      onShowToast?.("Failed to synchronize external Google Calendar blockers.");
     }
   };
 
-  // Organize events by day of week
-  const daysOfWeek = [
-    { name: 'Monday', dateStr: '2026-06-22' },
-    { name: 'Tuesday', dateStr: '2026-06-23' },
-    { name: 'Wednesday', dateStr: '2026-06-24' },
-    { name: 'Thursday', dateStr: '2026-06-25' },
-    { name: 'Friday', dateStr: '2026-06-26' },
-    { name: 'Saturday', dateStr: '2026-06-27' },
-    { name: 'Sunday', dateStr: '2026-06-28' },
-  ];
+  // Organize events by day of week dynamically
+  const daysOfWeek = React.useMemo(() => {
+    const ref = new Date("2026-06-22T00:00:00");
+    const day = ref.getDay();
+    const diff = ref.getDate() - day + (day === 0 ? -6 : 1);
+    ref.setDate(diff + weekOffset * 7);
+
+    const days = [];
+    const weekdayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    for (let i = 0; i < 7; i++) {
+      const current = new Date(ref);
+      current.setDate(ref.getDate() + i);
+      const year = current.getFullYear();
+      const month = String(current.getMonth() + 1).padStart(2, '0');
+      const d = String(current.getDate()).padStart(2, '0');
+      days.push({
+        name: weekdayNames[i],
+        dateStr: `${year}-${month}-${d}`
+      });
+    }
+    return days;
+  }, [weekOffset]);
 
   const getEventsForDay = (dateStr: string) => {
     return data.filter(e => {
-      const eventDay = e.start.split('T')[0];
-      return eventDay === dateStr;
+      const d = new Date(e.start);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const dayVal = String(d.getDate()).padStart(2, '0');
+      const localDateStr = `${year}-${month}-${dayVal}`;
+      return localDateStr === dateStr;
     }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   };
 
@@ -178,28 +208,66 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
       {/* Timeline calendar agenda list */}
       <div className="space-y-4">
         
-        <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-stone-200/85 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border-4 border-black rounded-xl p-4 neo-shadow-black">
           <div>
-            <h2 className="text-xs font-bold font-mono tracking-wider text-indigo-705 uppercase flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-indigo-600 animate-pulse" />
+            <h2 className="text-xs font-black font-mono tracking-tight text-black uppercase flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-black" />
               Travel-Aware Schedule Agenda
             </h2>
-            <span className="text-[10px] text-stone-500 font-mono font-medium">Current week starting June 22, 2026</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] text-black/60 font-mono font-bold">Week: {daysOfWeek[0]?.dateStr} to {daysOfWeek[6]?.dateStr}</span>
+              <div className="flex items-center gap-1 bg-[#fff582] border-2 border-black rounded px-2 py-0.5 shadow-sm">
+                <button 
+                  onClick={() => {
+                    setWeekOffset(prev => prev - 1);
+                    onShowToast?.("Moving focus viewpoint to previous week...");
+                  }}
+                  className="px-1 text-black font-black font-mono text-[9px] cursor-pointer hover:underline"
+                  title="Previous Week"
+                >
+                  &lsaquo; Prev
+                </button>
+                <span className="text-black/40 text-[9px] font-bold">•</span>
+                <button 
+                  onClick={() => {
+                    setWeekOffset(0);
+                    onShowToast?.("Reset calendar alignment back to active week.");
+                  }}
+                  className="px-1 text-black hover:underline font-black font-mono text-[9px] cursor-pointer"
+                >
+                  Today
+                </button>
+                <span className="text-black/40 text-[9px] font-bold">•</span>
+                <button 
+                  onClick={() => {
+                    setWeekOffset(prev => prev + 1);
+                    onShowToast?.("Moving focus viewpoint to next week...");
+                  }}
+                  className="px-1 text-black font-black font-mono text-[9px] cursor-pointer hover:underline"
+                  title="Next Week"
+                >
+                  Next &rsaquo;
+                </button>
+              </div>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
             <button
               onClick={syncGoogleCalendar}
               disabled={syncingGoogle}
-              className={`${gcalConnected ? 'bg-emerald-600 hover:bg-emerald-700 border-emerald-700' : 'bg-stone-800 hover:bg-stone-900 border-stone-900'} text-white font-bold text-[10px] sm:text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer shadow-sm transition-all`}
+              className={`${gcalConnected ? 'bg-[#b8f598] text-black' : 'bg-white hover:bg-neutral-50 text-black'} font-black text-[10px] sm:text-xs px-3 py-1.5 rounded flex items-center gap-1.5 cursor-pointer border-2 border-black shadow-xs active:translate-y-0.5`}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncingGoogle ? 'animate-spin' : ''}`} />
               <span>{gcalConnected ? "Sync Google Calendar" : "Connect Google Calendar"}</span>
             </button>
             <button
-              onClick={() => setShowAddEvent(!showAddEvent)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] sm:text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer shadow-sm border border-indigo-650"
+              onClick={() => {
+                setShowAddEvent(!showAddEvent);
+                onShowToast?.(showAddEvent ? "Closed calendar slot drawer." : "Opened manual slot drawer. Configure commitments!");
+              }}
+              className="bg-[#98e2ff] hover:bg-[#85d3f0] text-black font-black text-[10px] sm:text-xs px-3 py-1.5 rounded flex items-center gap-1 cursor-pointer shadow-xs border-2 border-black active:translate-y-0.5"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 strike-[2.5px]" />
               Add Calendar Slot
             </button>
           </div>
@@ -210,41 +278,41 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white border border-stone-250/80 p-5 rounded-xl space-y-3 text-xs shadow-md"
+            className="bg-white border-4 border-black p-5 rounded-xl space-y-3 text-xs neo-shadow-black"
           >
-            <h3 className="text-xs font-bold text-stone-850">Create Calendar Slot</h3>
+            <h3 className="text-xs font-black text-black uppercase tracking-tight">Create Calendar Slot</h3>
             <form onSubmit={handleCreateEvent} className="space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">Event Name</label>
+                  <label className="text-[9px] uppercase font-black text-black font-mono">Event Name</label>
                   <input
                     type="text"
                     required
-                    placeholder="E.g., Client Consultation Meeting"
+                    placeholder="E.g., Operating Systems Study block"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full bg-white border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs text-stone-850 focus:outline-none focus:border-indigo-500 font-semibold"
+                    className="w-full bg-white border-2 border-black rounded px-2.5 py-1.5 text-xs text-black focus:outline-none font-bold"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">Start</label>
+                    <label className="text-[9px] uppercase font-black text-black font-mono">Start</label>
                     <input
                       type="datetime-local"
                       required
                       value={start}
                       onChange={(e) => setStart(e.target.value)}
-                      className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-[11px] text-stone-850 focus:outline-none font-mono font-semibold"
+                      className="w-full bg-white border-2 border-black rounded px-2 py-1 text-[11px] text-black focus:outline-none font-mono font-bold"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">End</label>
+                    <label className="text-[9px] uppercase font-black text-black font-mono">End</label>
                     <input
                       type="datetime-local"
                       required
                       value={end}
                       onChange={(e) => setEnd(e.target.value)}
-                      className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-[11px] text-stone-850 focus:outline-none font-mono font-semibold"
+                      className="w-full bg-white border-2 border-black rounded px-2 py-1 text-[11px] text-black focus:outline-none font-mono font-bold"
                     />
                   </div>
                 </div>
@@ -252,11 +320,11 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
                 <div>
-                  <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">Slot Type</label>
+                  <label className="text-[9px] uppercase font-black text-black font-mono">Slot Type</label>
                   <select
                     value={category}
                     onChange={(e: any) => setCategory(e.target.value)}
-                    className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-850 focus:outline-none font-semibold"
+                    className="w-full bg-white border-2 border-black rounded px-2 py-1.5 text-xs text-black focus:outline-none font-bold"
                   >
                     <option value="meeting">Business Meeting</option>
                     <option value="work">Focus Deep Work</option>
@@ -267,12 +335,12 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
                 {category === 'meeting' && (
                   <>
                     <div>
-                      <label className="text-[9px] uppercase font-bold text-stone-400 font-mono">Commute Duration (mins)</label>
+                      <label className="text-[9px] uppercase font-black text-black font-mono">Commute Duration (mins)</label>
                       <input
                         type="number"
                         value={travelTime}
                         onChange={(e) => setTravelTime(Number(e.target.value))}
-                        className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-xs text-stone-800 focus:outline-none font-mono font-semibold"
+                        className="w-full bg-white border-2 border-black rounded px-2 py-1 text-xs text-black focus:outline-none font-mono font-bold"
                       />
                     </div>
                     <div className="flex items-center gap-2 pt-4">
@@ -281,9 +349,9 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
                         id="blockCommute"
                         checked={commuteBlocked}
                         onChange={(e) => setCommuteBlocked(e.target.checked)}
-                        className="w-3.5 h-3.5 accent-indigo-600 rounded bg-white border border-stone-300 cursor-pointer"
+                        className="w-3.5 h-3.5 accent-black rounded border-2 border-black cursor-pointer"
                       />
-                      <label htmlFor="blockCommute" className="font-mono text-[9px] text-stone-605 cursor-pointer font-bold">
+                      <label htmlFor="blockCommute" className="font-mono text-[9px] text-black cursor-pointer font-black">
                         Block Commute Buffer
                       </label>
                     </div>
@@ -295,14 +363,14 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
                 <button
                   type="button"
                   onClick={() => setShowAddEvent(false)}
-                  className="px-3 py-1.5 border border-stone-200 text-stone-500 hover:text-stone-850 rounded-lg cursor-pointer hover:bg-stone-50 font-semibold"
+                  className="px-3 py-1.5 border-2 border-black text-black hover:bg-neutral-55 rounded cursor-pointer font-bold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="bg-indigo-600 hover:bg-indigo-700 border border-indigo-650 text-white font-bold px-3 py-1.5 rounded-lg cursor-pointer"
+                  className="bg-[#b8f598] hover:bg-[#a0e080] border-2 border-black text-black font-black px-3 py-1.5 rounded cursor-pointer transition-all neo-shadow-black-sm"
                 >
                   Insert Event Block
                 </button>
@@ -318,53 +386,57 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
             const isToday = day.dateStr === '2026-06-22';
 
             return (
-              <div key={day.dateStr} className={`p-4 rounded-xl border ${isToday ? 'bg-indigo-50/40 border-indigo-305 shadow-sm shadow-indigo-100/30' : 'bg-white border-stone-200/80 shadow-xs'}`}>
-                <div className="flex items-center justify-between border-b border-stone-200/60 pb-2 mb-3">
+              <div key={day.dateStr} className={`p-4 rounded-xl border-4 border-black bg-white neo-shadow-black`}>
+                <div className={`flex items-center justify-between border-b-2 border-black pb-2 mb-3 px-1 py-1 rounded ${isToday ? 'bg-[#fff582]' : 'bg-[#e4f3a2]/40'}`}>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-stone-850">{day.name}</span>
-                    <span className="text-[10px] text-stone-450 font-mono font-semibold">{day.dateStr}</span>
+                    <span className="text-xs font-black text-black uppercase">{day.name}</span>
+                    <span className="text-[10px] text-black/60 font-mono font-bold">{day.dateStr}</span>
                   </div>
-                  {isToday && (
-                    <span className="text-[8px] bg-indigo-150 text-indigo-805 border border-indigo-250 font-bold px-2 py-0.5 rounded font-mono uppercase">
-                      Today Mode
+                  {isToday ? (
+                    <span className="text-[8px] bg-black text-[#ffffff] font-extrabold px-2 py-0.5 rounded font-mono uppercase">
+                      Today View
+                    </span>
+                  ) : (
+                    <span className="text-[8px] bg-white border border-black text-black font-bold px-2 py-0.5 rounded font-mono uppercase">
+                      Slotted
                     </span>
                   )}
                 </div>
 
                 {evts.length === 0 ? (
-                  <p className="text-xs text-stone-400 italic py-2 font-medium">No slotted occurrences planned.</p>
+                  <p className="text-xs text-black/50 italic py-2 font-mono font-bold pl-2">No slotted occurrences planned.</p>
                 ) : (
-                  <div className="relative border-l border-stone-200 ml-2 pl-4 space-y-3 font-mono text-[11px]">
+                  <div className="relative border-l-2 border-black/80 ml-2 pl-4 space-y-3 font-mono text-[11px]">
                     {evts.map((e) => {
                       const startTime = new Date(e.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                       const endTime = new Date(e.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                      let blockStyle = 'bg-stone-50 border-l-4 border-stone-400 text-stone-800 border-y border-r border-stone-150';
+                      let blockStyle = 'bg-white border-2 border-black text-black';
                       
                       if (e.category === 'meeting') {
-                        blockStyle = 'bg-amber-50 border-l-4 border-amber-500 text-amber-900 border-y border-r border-amber-150';
+                        blockStyle = 'bg-[#dfbeff] border-2 border-black text-black';
                       } else if (e.category === 'deep_work') {
-                        blockStyle = 'bg-indigo-50 border-l-4 border-indigo-500 text-indigo-900 border-y border-r border-indigo-150';
+                        blockStyle = 'bg-[#98e2ff] border-2 border-black text-black';
                       } else if (e.category === 'commute') {
-                        blockStyle = 'bg-orange-50 border-l-4 border-dashed border-orange-400 text-orange-950 opacity-85 border-y border-r border-orange-150';
+                        blockStyle = 'bg-[#ff94e0]/30 border-2 border-dashed border-black text-black/80';
                       }
 
                       return (
-                        <div key={e.id} className={`p-2.5 rounded-lg border flex items-center justify-between shadow-xs ${blockStyle}`}>
+                        <div key={e.id} className={`p-2.5 rounded border-2 border-black flex items-center justify-between neo-shadow-black-sm ${blockStyle}`}>
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              {e.category === 'commute' && <Car className="w-3.5 h-3.5 text-orange-600 animate-pulse" />}
-                              <span className="font-bold">{e.title}</span>
+                              {e.category === 'commute' && <Car className="w-3.5 h-3.5 text-black" />}
+                              <span className="font-extrabold">{e.title}</span>
                             </div>
                             
-                            <div className="flex items-center gap-3 text-[10px] text-stone-500 font-bold">
+                            <div className="flex items-center gap-3 text-[10px] text-black/70 font-black">
                               <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-stone-400" />
+                                <Clock className="w-3 h-3 text-black" />
                                 {startTime} – {endTime}
                               </span>
                               {e.travelTime && (
-                                <span className="text-orange-700 flex items-center gap-0.5 font-bold">
-                                  <MapPin className="w-3 h-3 text-orange-500" />
+                                <span className="text-[#ff66b2] flex items-center gap-0.5 font-black underline decoration-2">
+                                  <MapPin className="w-3 h-3 text-black" />
                                   Requires {e.travelTime}m travel buffer
                                 </span>
                               )}
@@ -380,7 +452,6 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading 
           })}
         </div>
       </div>
-
     </div>
   );
 }
