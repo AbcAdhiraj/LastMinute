@@ -3,7 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
-import { readDb, writeDb, updateDb } from './src/server/db';
+import { readDb, writeDb, updateDb, ensureUserDbLoaded } from './src/server/db';
 import { AppDatabase, Task, Goal, Habit, CalendarEvent, ScheduledSession, GmailCommitment, Notification, RiskAssessment, RescheduleLog, Analytics } from './src/types';
 
 // Load environmental variables
@@ -32,8 +32,54 @@ function getAi(): GoogleGenAI {
   return aiClient;
 }
 
+// Robust wrapper for generateContent to handle 503/transient errors and model fallback
+async function generateContentWithFallback(params: {
+  model: string;
+  contents: any;
+  config?: any;
+}): Promise<any> {
+  const ai = getAi();
+  const primaryModel = params.model;
+  try {
+    return await ai.models.generateContent(params);
+  } catch (err: any) {
+    console.warn(`Primary Gemini call to ${primaryModel} failed. Attempting fallback...`, err);
+    
+    // Fallback from gemini-3.5-flash to gemini-3.1-flash-lite
+    if (primaryModel === "gemini-3.5-flash") {
+      try {
+        console.log("Attempting fallback with gemini-3.1-flash-lite...");
+        const fallbackParams = { ...params, model: "gemini-3.1-flash-lite" };
+        return await ai.models.generateContent(fallbackParams);
+      } catch (fallbackErr) {
+        console.error("Fallback to gemini-3.1-flash-lite also failed:", fallbackErr);
+        throw err; // throw original error
+      }
+    }
+    throw err;
+  }
+}
+
 // Check if Gemini key is available for server logs
 console.log("Gemini API Key Available:", !!process.env.GEMINI_API_KEY);
+
+// Helper to extract authenticated user's uid from request headers
+const getUid = (req: any): string => {
+  return (req.headers['x-user-uid'] as string) || 'default';
+};
+
+// Middleware to ensure user's database is synced from Firestore on their requests
+app.use(async (req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    try {
+      const uid = getUid(req);
+      await ensureUserDbLoaded(uid);
+    } catch (e) {
+      console.error("Error in ensureUserDbLoaded middleware:", e);
+    }
+  }
+  next();
+});
 
 // Helper to structure error responses
 const handleError = (res: Response, err: unknown, msg: string) => {
@@ -219,7 +265,7 @@ function findFreeBlocks(db: AppDatabase, hoursNeeded: number): { start: string; 
  * Dynamically re-allocates study sessions for all active tasks (pipeline).
  * Sorts them by urgency/importance and re-schedules focus blocks sequentially.
  */
-function triggerGlobalRescheduling(): void {
+function triggerGlobalRescheduling(uid: string = 'default'): void {
   updateDb((db) => {
     // 1. Clear all of our current study (deep work) blocks that are scheduled (non-completed)
     db.scheduledSessions = db.scheduledSessions.filter(s => s.status !== 'scheduled');
@@ -285,7 +331,7 @@ function triggerGlobalRescheduling(): void {
       timestamp: new Date().toISOString(),
       read: false
     });
-  });
+  }, uid);
 }
 
 // ==========================================
@@ -295,7 +341,8 @@ function triggerGlobalRescheduling(): void {
 // GET Profile and Dashboard Analytics
 app.get('/api/profile', (req: Request, res: Response) => {
   try {
-    const db = readDb();
+    const uid = getUid(req);
+    const db = readDb(uid);
     const analytics = calculateAnalyticsModel(db);
     const tasksWithRisk = db.tasks.map(t => {
       const risk = db.riskAssessments.find(r => r.taskId === t.id);
@@ -323,10 +370,25 @@ app.get('/api/profile', (req: Request, res: Response) => {
   }
 });
 
+// POST Save onboarding profile data (full database sync/seed fallback)
+app.post('/api/profile/onboard', (req: Request, res: Response) => {
+  try {
+    const uid = getUid(req);
+    const databaseData = req.body;
+    if (!databaseData || !databaseData.userProfile) {
+      return res.status(400).json({ error: "Invalid database structure" });
+    }
+    writeDb(databaseData, uid);
+    res.json({ success: true, message: "Onboarding completed and synced successfully" });
+  } catch (err) {
+    handleError(res, err, "Failed to save onboarding data");
+  }
+});
+
 // GET all Tasks
 app.get('/api/tasks', (req: Request, res: Response) => {
   try {
-    const db = readDb();
+    const db = readDb(getUid(req));
     const tasksWithRisk = db.tasks.map(t => {
       const risk = db.riskAssessments.find(r => r.taskId === t.id);
       return {
@@ -377,20 +439,22 @@ app.post('/api/tasks', async (req: Request, res: Response) => {
       calculatedAt: new Date().toISOString()
     };
 
+    const uid = getUid(req);
+
     updateDb((db) => {
       db.tasks.unshift(newTask);
       db.riskAssessments.push(newRisk);
-    });
+    }, uid);
 
     // If auto-schedule is requested, trigger session distribution!
     if (autoSchedule) {
-      triggerGlobalRescheduling();
+      triggerGlobalRescheduling(uid);
     }
 
     // Trigger AI Risk re-evaluation in background if key is present
     try {
       if (process.env.GEMINI_API_KEY) {
-        await evalSingleTaskRisk(newTask.id);
+        await evalSingleTaskRisk(newTask.id, uid);
       }
     } catch (riskErr) {
       console.warn("Background AI Risk assessment failed (non-blocking):", riskErr);
@@ -408,6 +472,7 @@ app.put('/api/tasks/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const bodyUpdates = req.body;
 
+    const uid = getUid(req);
     let updatedTask: Task | null = null;
 
     updateDb((db) => {
@@ -430,7 +495,7 @@ app.put('/api/tasks/:id', async (req: Request, res: Response) => {
           });
         }
       }
-    });
+    }, uid);
 
     if (!updatedTask) {
       return res.status(404).json({ error: "Task not found." });
@@ -439,7 +504,7 @@ app.put('/api/tasks/:id', async (req: Request, res: Response) => {
     // Trigger update parameters in background AI evaluation
     if (process.env.GEMINI_API_KEY) {
       try {
-        await evalSingleTaskRisk(id);
+        await evalSingleTaskRisk(id, uid);
       } catch (e) {
         console.warn("API AI Risk assessment failed (non-blocking)", e);
       }
@@ -464,7 +529,7 @@ app.delete('/api/tasks/:id', (req: Request, res: Response) => {
       db.calendarEvents = db.calendarEvents.filter(e => e.taskId !== id);
       db.riskAssessments = db.riskAssessments.filter(r => r.taskId !== id);
       if (db.tasks.length < startLen) found = true;
-    });
+    }, getUid(req));
 
     if (!found) {
       return res.status(404).json({ error: "Task not found." });
@@ -477,11 +542,12 @@ app.delete('/api/tasks/:id', (req: Request, res: Response) => {
 
 // GOALS, HABITS Controllers
 app.get('/api/goals', (req: Request, res: Response) => {
-  try { res.json(readDb().goals); } catch (e) { handleError(res, e, "Fail goals fetch"); }
+  try { res.json(readDb(getUid(req)).goals); } catch (e) { handleError(res, e, "Fail goals fetch"); }
 });
 
 app.post('/api/goals', (req: Request, res: Response) => {
   try {
+    const uid = getUid(req);
     const { title, category, targetValue, currentValue, unit, deadline } = req.body;
     const newGoal: Goal = {
       id: "goal_" + Math.random().toString(36).substr(2, 9),
@@ -494,13 +560,14 @@ app.post('/api/goals', (req: Request, res: Response) => {
       completionPrediction: 50,
       progressHistory: [{ date: new Date().toISOString().split('T')[0], value: Number(currentValue) || 0 }]
     };
-    updateDb(db => { db.goals.push(newGoal); });
+    updateDb(db => { db.goals.push(newGoal); }, uid);
     res.status(201).json(newGoal);
   } catch (e) { handleError(res, e, "Fail goal create"); }
 });
 
 app.put('/api/goals/:id', (req: Request, res: Response) => {
   try {
+    const uid = getUid(req);
     const { id } = req.params;
     const updates = req.body;
     let updated: Goal | null = null;
@@ -523,18 +590,19 @@ app.put('/api/goals/:id', (req: Request, res: Response) => {
         db.goals[idx].completionPrediction = Math.min(100, Math.round(ratio * 100 + 15));
         updated = db.goals[idx];
       }
-    });
+    }, uid);
     if (!updated) return res.status(404).json({ error: "Goal not found" });
     res.json(updated);
   } catch (e) { handleError(res, e, "Fail goal update"); }
 });
 
 app.get('/api/habits', (req: Request, res: Response) => {
-  try { res.json(readDb().habits); } catch (e) { handleError(res, e, "Fail habits fetch"); }
+  try { res.json(readDb(getUid(req)).habits); } catch (e) { handleError(res, e, "Fail habits fetch"); }
 });
 
 app.post('/api/habits', (req: Request, res: Response) => {
   try {
+    const uid = getUid(req);
     const { title, frequency, category } = req.body;
     const newHabit: Habit = {
       id: "habit_" + Math.random().toString(36).substr(2, 9),
@@ -544,13 +612,14 @@ app.post('/api/habits', (req: Request, res: Response) => {
       category: category || "general",
       history: []
     };
-    updateDb(db => { db.habits.push(newHabit); });
+    updateDb(db => { db.habits.push(newHabit); }, uid);
     res.status(201).json(newHabit);
   } catch (e) { handleError(res, e, "Fail habit create"); }
 });
 
 app.put('/api/habits/:id/toggle', (req: Request, res: Response) => {
   try {
+    const uid = getUid(req);
     const { id } = req.params;
     const dateStr = new Date().toISOString().split('T')[0];
     let updated: Habit | null = null;
@@ -581,7 +650,7 @@ app.put('/api/habits/:id/toggle', (req: Request, res: Response) => {
         }
         updated = habit;
       }
-    });
+    }, uid);
 
     if (!updated) return res.status(404).json({ error: "Habit not found" });
     res.json(updated);
@@ -591,7 +660,8 @@ app.put('/api/habits/:id/toggle', (req: Request, res: Response) => {
 // GET all Calendar Events (including study block markers)
 app.get('/api/calendar', (req: Request, res: Response) => {
   try {
-    const db = readDb();
+    const uid = getUid(req);
+    const db = readDb(uid);
     
     // Auto-expand Travel commute blocks for any meeting event that has a travelTime configuration
     const events: CalendarEvent[] = [];
@@ -621,6 +691,7 @@ app.get('/api/calendar', (req: Request, res: Response) => {
 // POST Manual Calendar Event
 app.post('/api/calendar', (req: Request, res: Response) => {
   try {
+    const uid = getUid(req);
     const { title, start, end, category, travelTime, commuteBlocked } = req.body;
     if (!title || !start || !end) {
       return res.status(400).json({ error: "Title, start time, and end time are required." });
@@ -636,10 +707,10 @@ app.post('/api/calendar', (req: Request, res: Response) => {
       commuteBlocked: !!commuteBlocked
     };
 
-    updateDb(db => { db.calendarEvents.push(newEvt); });
+    updateDb(db => { db.calendarEvents.push(newEvt); }, uid);
 
     // Automatically trigger pipeline rescheduling around the new event blocker
-    triggerGlobalRescheduling();
+    triggerGlobalRescheduling(uid);
 
     res.status(201).json(newEvt);
   } catch (err) {
@@ -650,6 +721,7 @@ app.post('/api/calendar', (req: Request, res: Response) => {
 // POST Google Calendar Synced Events
 app.post('/api/calendar/sync-google-events', (req: Request, res: Response) => {
   try {
+    const uid = getUid(req);
     const { events } = req.body;
     if (!Array.isArray(events)) {
       return res.status(400).json({ error: "An array of Google Calendar events is required." });
@@ -672,10 +744,10 @@ app.post('/api/calendar/sync-google-events', (req: Request, res: Response) => {
           category: 'meeting'
         });
       });
-    });
+    }, uid);
 
     // Automatically trigger dynamic rescheduling around new Google calendar blockers
-    triggerGlobalRescheduling();
+    triggerGlobalRescheduling(uid);
 
     res.json({ success: true, message: "Google Calendar synced and study sessions re-allocated optimally." });
   } catch (err) {
@@ -688,7 +760,7 @@ app.post('/api/calendar/sync-google-events', (req: Request, res: Response) => {
 // ==========================================
 app.get('/api/gmail-commitments', (req: Request, res: Response) => {
   try {
-    res.json(readDb().gmailCommitments);
+    res.json(readDb(getUid(req)).gmailCommitments);
   } catch (e) {
     handleError(res, e, "Fail fetching Gmail inbox");
   }
@@ -696,9 +768,10 @@ app.get('/api/gmail-commitments', (req: Request, res: Response) => {
 
 app.post('/api/gmail-commitments/discover', async (req: Request, res: Response) => {
   try {
+    const uid = getUid(req);
     if (!process.env.GEMINI_API_KEY) {
       // Offline fallback: simulate commitment discovery with rich logs
-      const db = readDb();
+      const db = readDb(uid);
       const discoveredCount = db.gmailCommitments.filter(c => c.status === 'discovered').length;
       return res.json({
         success: true,
@@ -708,7 +781,7 @@ app.post('/api/gmail-commitments/discover', async (req: Request, res: Response) 
     }
 
     // AI MODE: Use Gemini 3.5 Flash to automatically discover commitments from mock emails!
-    const db = readDb();
+    const db = readDb(uid);
     const emailsToAnalyze = db.gmailCommitments.filter(c => c.status === 'discovered');
 
     if (emailsToAnalyze.length === 0) {
@@ -730,7 +803,7 @@ Validate types precisely:
 
 Respond ONLY with a valid JSON array matching the keys described.`;
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithFallback({
       model: "gemini-3.5-flash",
       contents: prompt,
       config: {
@@ -769,12 +842,12 @@ Respond ONLY with a valid JSON array matching the keys described.`;
           currentDb.gmailCommitments[commIdx].extractedTask = item.extractedTask;
         }
       });
-    });
+    }, uid);
 
     res.json({
       success: true,
       message: `Parsed inbox analysis. AI discovered ${parsedResults.length} structured commitments.`,
-      commitments: readDb().gmailCommitments
+      commitments: readDb(uid).gmailCommitments
     });
 
   } catch (err) {
@@ -786,6 +859,7 @@ Respond ONLY with a valid JSON array matching the keys described.`;
 app.post('/api/gmail-commitments/import/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const uid = getUid(req);
     let importedTask: Task | null = null;
 
     updateDb((db) => {
@@ -831,7 +905,7 @@ app.post('/api/gmail-commitments/import/:id', (req: Request, res: Response) => {
           });
         }
       }
-    });
+    }, uid);
 
     if (!importedTask) {
       return res.status(404).json({ error: "Discovered commitment not found or lacks parsed data structures." });
@@ -846,8 +920,8 @@ app.post('/api/gmail-commitments/import/:id', (req: Request, res: Response) => {
 // ==========================================
 // 5. FEATURE 2: RISK PREDICTION ENGINE
 // ==========================================
-async function evalSingleTaskRisk(taskId: string): Promise<RiskAssessment> {
-  const db = readDb();
+async function evalSingleTaskRisk(taskId: string, uid: string = 'default'): Promise<RiskAssessment> {
+  const db = readDb(uid);
   const task = db.tasks.find(t => t.id === taskId);
   if (!task) throw new Error("Task not found");
 
@@ -890,7 +964,7 @@ async function evalSingleTaskRisk(taskId: string): Promise<RiskAssessment> {
   if (process.env.GEMINI_API_KEY) {
     try {
       const ai = getAi();
-      const aiResult = await ai.models.generateContent({
+      const aiResult = await generateContentWithFallback({
         model: "gemini-3.5-flash",
         contents: `Analyze completion risk for this commitment:
 - Title: "${task.title}"
@@ -949,7 +1023,7 @@ Provide your response strictly in the following JSON schema representation:
     } else {
       db.riskAssessments.push(assessment);
     }
-  });
+  }, uid);
 
   return assessment;
 }
@@ -957,7 +1031,8 @@ Provide your response strictly in the following JSON schema representation:
 app.post('/api/risk-engine/assess/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const assessment = await evalSingleTaskRisk(id);
+    const uid = getUid(req);
+    const assessment = await evalSingleTaskRisk(id, uid);
     res.json(assessment);
   } catch (err) {
     handleError(res, err, "Failed to run risk assessment calculations");
@@ -973,7 +1048,8 @@ app.post('/api/auto-schedule', (req: Request, res: Response) => {
     const { taskId, sessionsCount } = req.body;
     if (!taskId) return res.status(400).json({ error: "Missing taskId." });
 
-    const db = readDb();
+    const uid = getUid(req);
+    const db = readDb(uid);
     const task = db.tasks.find(t => t.id === taskId);
     if (!task) return res.status(404).json({ error: "Task code not registered." });
 
@@ -983,9 +1059,9 @@ app.post('/api/auto-schedule', (req: Request, res: Response) => {
     updateDb((currentDb) => {
       currentDb.scheduledSessions = currentDb.scheduledSessions.filter(s => !(s.taskId === taskId && s.status === 'scheduled'));
       currentDb.calendarEvents = currentDb.calendarEvents.filter(e => !(e.taskId === taskId && e.category === 'deep_work'));
-    });
+    }, uid);
 
-    const activeDb = readDb();
+    const activeDb = readDb(uid);
     const blocksAvailable = findFreeBlocks(activeDb, remainingEffort);
 
     if (blocksAvailable.length === 0) {
@@ -1030,7 +1106,7 @@ app.post('/api/auto-schedule', (req: Request, res: Response) => {
         timestamp: new Date().toISOString(),
         read: false
       });
-    });
+    }, uid);
 
     res.json({ success: true, sessionsAllocated: newSessions });
 
@@ -1045,7 +1121,7 @@ app.post('/api/auto-schedule', (req: Request, res: Response) => {
 // ==========================================
 app.get('/api/self-heal/logs', (req: Request, res: Response) => {
   try {
-    res.json(readDb().rescheduleLogs);
+    res.json(readDb(getUid(req)).rescheduleLogs);
   } catch (e) {
     handleError(res, e, "Fail fetching logs");
   }
@@ -1054,7 +1130,8 @@ app.get('/api/self-heal/logs', (req: Request, res: Response) => {
 app.post('/api/self-heal', async (req: Request, res: Response) => {
   try {
     const { taskId, explicitReason } = req.body;
-    const db = readDb();
+    const uid = getUid(req);
+    const db = readDb(uid);
 
     // If a taskId is passed, heal that specific task.
     // Otherwise, scan all tasks and find missed scheduledSessions to trigger a batch self-heal!
@@ -1082,7 +1159,7 @@ app.post('/api/self-heal', async (req: Request, res: Response) => {
     const selfHealLogs: RescheduleLog[] = [];
 
     for (const task of tasksToHeal) {
-      const activeDb = readDb();
+      const activeDb = readDb(uid);
       // Calculate remaining effort. If sessions were missed, we must preserve or reallocate them
       const missedCount = activeDb.scheduledSessions.filter(s => s.taskId === task.id && s.status === 'missed').length;
       
@@ -1094,12 +1171,12 @@ app.post('/api/self-heal', async (req: Request, res: Response) => {
       updateDb((currentDb) => {
         currentDb.scheduledSessions = currentDb.scheduledSessions.filter(s => !(s.taskId === task.id && s.status === 'scheduled'));
         currentDb.calendarEvents = currentDb.calendarEvents.filter(e => !(e.taskId === task.id && e.category === 'deep_work'));
-      });
+      }, uid);
 
       // Recalculate working blocks needed. We need: pending hours + missed hours to re-schedule
       const totalHoursNeeded = (pendingSessions.length * 2) + (missedCount * 2);
 
-      const refreshDb = readDb();
+      const refreshDb = readDb(uid);
       const freeSlots = findFreeBlocks(refreshDb, totalHoursNeeded);
 
       const reallocatedSessions: ScheduledSession[] = freeSlots.map((slot, idx) => ({
@@ -1161,11 +1238,11 @@ app.post('/api/self-heal', async (req: Request, res: Response) => {
             s.status = 'completed'; // resolve missed records after corrective healing
           }
         });
-      });
+      }, uid);
 
       // Recalculate Risk assessment for this task!
       try {
-        await evalSingleTaskRisk(task.id);
+        await evalSingleTaskRisk(task.id, uid);
       } catch (e) {
         console.warn("AI Risk Assessment on heal non-critical failure", e);
       }
@@ -1187,7 +1264,8 @@ app.post('/api/copilot', async (req: Request, res: Response) => {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: "Missing message query." });
 
-    const db = readDb();
+    const uid = getUid(req);
+    const db = readDb(uid);
     let reply = "";
 
     if (!process.env.GEMINI_API_KEY) {
@@ -1200,7 +1278,7 @@ app.post('/api/copilot', async (req: Request, res: Response) => {
       } else if (text.includes('heal') || text.includes('missed') || text.includes('fix')) {
         reply = "I've detected a missed study slot for your Operating Systems assignment! I can trigger our **Schedule Healing Engine** to find free blocks on Tuesday or Wednesday. Would you like me to execute this self-healing correction?";
       } else {
-        reply = `Hello Adhiraj! As your AI Chief of Staff, I am monitoring 4 active commitments. We have tracked 1 high-risk warning. You can ask me to self-heal your schedule, analyze upcoming travel delays, review inbox emails for commitments, or plan work intervals. What should we tackle right now?`;
+        reply = `Hello ${db.userProfile?.name || 'Adhiraj'}! As your AI Chief of Staff, I am monitoring ${db.tasks.length} active commitments. We have tracked some warning warnings. You can ask me to self-heal your schedule, analyze upcoming travel delays, review inbox emails for commitments, or plan work intervals. What should we tackle right now?`;
       }
       return res.json({ response: reply });
     }
@@ -1221,7 +1299,7 @@ Current Database State:
 
 Provide exact statistics. For example: "Starting Operating Systems tonight increases your completion probability from 28% to 74% because it matches your preferred evening peak focus period." Or tell them exactly which calendar blocks conflict! Keep your answer crisp and under 150 words.`;
 
-    const chatResponse = await ai.models.generateContent({
+    const chatResponse = await generateContentWithFallback({
       model: "gemini-3.5-flash",
       contents: prompt,
       config: {
@@ -1248,7 +1326,8 @@ const handleVoiceCommand = async (req: Request, res: Response) => {
     const returnAudio = req.body.returnAudio;
     if (!message) return res.status(400).json({ error: "Missing voiced message string." });
 
-    const db = readDb();
+    const uid = getUid(req);
+    const db = readDb(uid);
     let recognizedText = message;
     let feedback = "";
     let base64Audio = null;
@@ -1284,7 +1363,7 @@ Format the response strictly to JSON:
   }
 }`;
 
-    const parsedVoiceResponse = await ai.models.generateContent({
+    const parsedVoiceResponse = await generateContentWithFallback({
       model: "gemini-3.5-flash",
       contents: voicePrompt,
       config: {
@@ -1348,10 +1427,10 @@ Format the response strictly to JSON:
           timestamp: new Date().toISOString(),
           read: false
         });
-      });
+      }, uid);
 
       // Quick auto schedule for the new task
-      const blocks = findFreeBlocks(readDb(), voiceTask.estimatedEffort);
+      const blocks = findFreeBlocks(readDb(uid), voiceTask.estimatedEffort);
       const voiceSessions: ScheduledSession[] = blocks.map((b, idx) => ({
         id: `sess_voice_${voiceTask.id}_${idx}`,
         taskId: voiceTask.id,
@@ -1373,13 +1452,13 @@ Format the response strictly to JSON:
       updateDb(currentDb => {
         currentDb.scheduledSessions.push(...voiceSessions);
         currentDb.calendarEvents.push(...voiceCalEvents);
-      });
+      }, uid);
     }
 
     // TTS SPEECH CONVERSION (Feature 7 Voice Assistant: returns audio stream chunk)
     if (returnAudio && process.env.GEMINI_API_KEY) {
       try {
-        const audioResponse = await ai.models.generateContent({
+        const audioResponse = await generateContentWithFallback({
           model: "gemini-3.1-flash-tts-preview",
           contents: [{ parts: [{ text: `Say cheerfully: ${feedback}` }] }],
           config: {

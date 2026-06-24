@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Mail, CheckSquare, Calendar, BarChart2, Target, Mic, Settings, AlertCircle, Sparkles } from 'lucide-react';
+import { Home, Mail, CheckSquare, Calendar, BarChart2, Target, Mic, Settings, AlertCircle, Sparkles, LogOut } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -8,9 +8,24 @@ interface SidebarProps {
   risksCount: number;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  userProfile?: {
+    name: string;
+    email: string;
+    avatarUrl: string;
+  };
+  onLogOut?: () => void;
 }
 
-export function Sidebar({ activeTab, setActiveTab, unreadsCount, risksCount, sidebarOpen, setSidebarOpen }: SidebarProps) {
+export function Sidebar({ 
+  activeTab, 
+  setActiveTab, 
+  unreadsCount, 
+  risksCount, 
+  sidebarOpen, 
+  setSidebarOpen,
+  userProfile,
+  onLogOut
+}: SidebarProps) {
   const menuItems = [
     { id: 'home', label: 'Home Dashboard', icon: Home, bg: 'bg-[#fff066]' },
     { id: 'inbox', label: 'Gmail Commitments', icon: Mail, badge: unreadsCount > 0 ? unreadsCount : undefined, badgeColor: 'bg-[#ff66b2]', bg: 'bg-[#98e2ff]' },
@@ -18,6 +33,11 @@ export function Sidebar({ activeTab, setActiveTab, unreadsCount, risksCount, sid
     { id: 'goals', label: 'Goals & Habits', icon: Target, bg: 'bg-[#b8f598]' },
     { id: 'analytics', label: 'AI Productivity', icon: BarChart2, bg: 'bg-[#dfbeff]' },
   ];
+
+  const displayName = userProfile?.name || "Adhiraj Tiwari";
+  const displayEmail = userProfile?.email || "adhirajtiwari01@gmail.com";
+  const displayAvatar = userProfile?.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256";
+  const initialLetter = displayName ? displayName.charAt(0).toUpperCase() : "A";
 
   return (
     <>
@@ -54,8 +74,8 @@ export function Sidebar({ activeTab, setActiveTab, unreadsCount, risksCount, sid
           <div className="px-5 py-4 border-b-2 border-black/80">
             <span className="text-[10px] font-mono tracking-wider font-extrabold text-black/60 uppercase">Workspace</span>
             <div className="mt-1 flex items-center gap-2 bg-[#ffffff] px-3 py-1.5 rounded border-2 border-black text-xs neo-shadow-black-sm">
-              <span className="w-5 h-5 bg-[#ff9ee1] border border-black rounded-full flex items-center justify-center text-[10px] font-black text-black font-mono">A</span>
-              <span className="font-bold text-black">Adhiraj's Space</span>
+              <span className="w-5 h-5 bg-[#ff9ee1] border border-black rounded-full flex items-center justify-center text-[10px] font-black text-black font-mono">{initialLetter}</span>
+              <span className="font-bold text-black truncate">{displayName.split(' ')[0]}'s Space</span>
             </div>
           </div>
 
@@ -105,17 +125,32 @@ export function Sidebar({ activeTab, setActiveTab, unreadsCount, risksCount, sid
           </div>
 
           {/* Footer profile info in clean colors */}
-          <div className="flex items-center gap-2.5 px-1 bg-white p-2 rounded border-2 border-black neo-shadow-black-sm">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256"
-              alt="User profile mini"
-              className="w-8 h-8 rounded-full object-cover border border-black shadow-xs shrink-0"
-              referrerPolicy="no-referrer"
-            />
-            <div className="min-w-0">
-              <p className="text-xs font-black text-black truncate leading-none">Adhiraj Tiwari</p>
-              <p className="text-[9px] font-mono text-black/60 truncate mt-0.5">adhirajtiwari01@gmail.com</p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-1.5 px-1 bg-white p-2 rounded border-2 border-black neo-shadow-black-sm">
+              <div className="flex items-center gap-2 min-w-0">
+                <img
+                  src={displayAvatar}
+                  alt="User profile mini"
+                  className="w-8 h-8 rounded-full object-cover border border-black shadow-xs shrink-0"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-black text-black truncate leading-none">{displayName}</p>
+                  <p className="text-[9px] font-mono text-black/60 truncate mt-0.5">{displayEmail}</p>
+                </div>
+              </div>
             </div>
+
+            {onLogOut && (
+              <button
+                onClick={onLogOut}
+                className="w-full bg-[#ff6161] hover:bg-[#ff4040] text-black border-2 border-black font-mono font-black text-[10px] uppercase py-2 rounded flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[2px_2px_0px_0px_#000000] active:translate-y-0.5"
+                title="Log Out of System"
+              >
+                <LogOut className="w-3.5 h-3.5 stroke-[2.5px]" />
+                <span>Log Out</span>
+              </button>
+            )}
           </div>
         </div>
       </aside>

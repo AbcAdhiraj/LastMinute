@@ -1,9 +1,39 @@
 import fs from 'fs';
 import path from 'path';
+import * as admin from 'firebase-admin';
 import { AppDatabase, Task, Goal, Habit, CalendarEvent, ScheduledSession, GmailCommitment, Notification, RiskAssessment, RescheduleLog, Analytics } from '../types';
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DB_DIR, 'db.json');
+
+// Initialize firebase-admin
+let firestore: any = null;
+try {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    const adminApp = admin as any;
+    if (adminApp.apps.length === 0) {
+      adminApp.initializeApp({
+        projectId: firebaseConfig.projectId
+      });
+    }
+    if (firebaseConfig.firestoreDatabaseId) {
+      try {
+        firestore = adminApp.firestore(firebaseConfig.firestoreDatabaseId);
+      } catch (e) {
+        console.warn("Could not initialize Firestore with custom databaseId, falling back to default", e);
+        firestore = adminApp.firestore();
+      }
+    } else {
+      firestore = adminApp.firestore();
+    }
+  } else {
+    console.warn("firebase-applet-config.json not found, firebase-admin not initialized");
+  }
+} catch (err) {
+  console.error("Error initializing firebase-admin:", err);
+}
 
 // Helper to calculate relative dates from "now" (2026-06-22)
 function getRelativeDate(days: number, hourStr: string = "00:00"): string {
@@ -375,37 +405,99 @@ const defaultDatabase: AppDatabase = {
   ]
 };
 
-export function readDb(): AppDatabase {
+export async function syncFromFirestore(uid: string): Promise<boolean> {
+  if (uid === 'default' || !firestore) return false;
   try {
+    const docRef = firestore.collection('users').doc(uid);
+    const docSnap = await docRef.get();
+    if (docSnap.exists) {
+      const data = docSnap.data() as AppDatabase;
+      // Write locally to db_${uid}.json
+      const userFile = path.join(DB_DIR, `db_${uid}.json`);
+      if (!fs.existsSync(DB_DIR)) {
+        fs.mkdirSync(DB_DIR, { recursive: true });
+      }
+      fs.writeFileSync(userFile, JSON.stringify(data, null, 2), 'utf-8');
+      console.log(`Successfully synced database from Firestore for user ${uid}`);
+      return true;
+    } else {
+      console.log(`No user document found in Firestore for user ${uid}`);
+    }
+  } catch (err) {
+    console.error(`Failed to sync database from Firestore for user ${uid}:`, err);
+  }
+  return false;
+}
+
+export async function syncToFirestore(uid: string, data: AppDatabase): Promise<void> {
+  if (uid === 'default' || !firestore) return;
+  try {
+    const docRef = firestore.collection('users').doc(uid);
+    await docRef.set(data, { merge: true });
+    console.log(`Successfully persisted database to Firestore for user ${uid}`);
+  } catch (err) {
+    console.error(`Failed to persist database to Firestore for user ${uid}:`, err);
+  }
+}
+
+export async function ensureUserDbLoaded(uid: string): Promise<void> {
+  if (uid === 'default') return;
+  const userFile = path.join(DB_DIR, `db_${uid}.json`);
+  if (!fs.existsSync(userFile)) {
+    console.log(`Local database file for user ${uid} not found. Attempting to fetch from Firestore...`);
+    await syncFromFirestore(uid);
+  }
+}
+
+export function readDb(uid: string = 'default'): AppDatabase {
+  try {
+    const userFile = path.join(DB_DIR, `db_${uid}.json`);
     if (!fs.existsSync(DB_DIR)) {
       fs.mkdirSync(DB_DIR, { recursive: true });
     }
-    if (!fs.existsSync(DB_FILE)) {
-      writeDb(defaultDatabase);
+    if (!fs.existsSync(userFile)) {
+      if (uid !== 'default' && fs.existsSync(DB_FILE)) {
+        try {
+          const raw = fs.readFileSync(DB_FILE, 'utf-8');
+          fs.writeFileSync(userFile, raw, 'utf-8');
+          return JSON.parse(raw);
+        } catch (e) {
+          // fallback
+        }
+      }
+      writeDb(defaultDatabase, uid);
       return defaultDatabase;
     }
-    const raw = fs.readFileSync(DB_FILE, 'utf-8');
+    const raw = fs.readFileSync(userFile, 'utf-8');
     return JSON.parse(raw);
   } catch (err) {
-    console.error("Failed to read database, resetting to seed data:", err);
+    console.error(`Failed to read database for user ${uid}, resetting to seed data:`, err);
     return defaultDatabase;
   }
 }
 
-export function writeDb(data: AppDatabase): void {
+export function writeDb(data: AppDatabase, uid: string = 'default'): void {
   try {
+    const userFile = path.join(DB_DIR, `db_${uid}.json`);
     if (!fs.existsSync(DB_DIR)) {
       fs.mkdirSync(DB_DIR, { recursive: true });
     }
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    fs.writeFileSync(userFile, JSON.stringify(data, null, 2), 'utf-8');
+
+    // Sync to Firestore in the background
+    if (uid !== 'default') {
+      syncToFirestore(uid, data).catch(err => {
+        console.error(`Background Firestore sync failed for user ${uid}:`, err);
+      });
+    }
   } catch (err) {
-    console.error("Failed to write to database:", err);
+    console.error(`Failed to write to database for user ${uid}:`, err);
   }
 }
 
-export function updateDb(updater: (data: AppDatabase) => void): AppDatabase {
-  const db = readDb();
+export function updateDb(updater: (data: AppDatabase) => void, uid: string = 'default'): AppDatabase {
+  const db = readDb(uid);
   updater(db);
-  writeDb(db);
+  writeDb(db, uid);
   return db;
 }

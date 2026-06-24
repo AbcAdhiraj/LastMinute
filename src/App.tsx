@@ -16,12 +16,21 @@ import { AnalyticsPanel } from './components/AnalyticsPanel';
 import { CopilotPanel } from './components/CopilotPanel';
 import { VoicePanel } from './components/VoicePanel';
 import { Task, CalendarEvent, GmailCommitment, Goal, Habit, Analytics } from './types/index';
+import { AuthPage } from './components/AuthPage';
+import { auth } from './lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { apiFetch } from './utils/api';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('home');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [appInitialized, setAppInitialized] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+
+  // Auth state
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [userProfile, setUserProfile] = useState<{ name: string; email: string; avatarUrl: string } | null>(null);
 
   // Loaded database state
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -51,6 +60,51 @@ export default function App() {
     }
   }, [toastMessage]);
 
+  // Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user);
+        setAuthLoading(false);
+      } else {
+        // Try restoring sandbox user session
+        const storedSandbox = localStorage.getItem('life-saver-sandbox-user');
+        if (storedSandbox) {
+          try {
+            setCurrentUser(JSON.parse(storedSandbox));
+          } catch (e) {
+            setCurrentUser(null);
+          }
+        } else {
+          setCurrentUser(null);
+        }
+        setAuthLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogOut = async () => {
+    try {
+      setIsLoading(true);
+      await signOut(auth);
+      localStorage.removeItem('life-saver-sandbox-user');
+      localStorage.removeItem('life-saver-sandbox-uid');
+      setCurrentUser(null);
+      setTasks([]);
+      setGoals([]);
+      setHabits([]);
+      setCalendarEvents([]);
+      setCommitments([]);
+      setAnalytics(null);
+      setUserProfile(null);
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const triggerTaskHeal = async (taskId: string) => {
     setIsLoading(true);
     let updatedHealed = healedTaskIds;
@@ -60,7 +114,7 @@ export default function App() {
     }
     try {
       showToast("Triggering predictive schedule self-heal workflow...");
-      const res = await fetch('/api/self-heal', {
+      const res = await apiFetch('/api/self-heal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId, explicitReason: "Autonomous single-task corrective recovery." })
@@ -85,23 +139,25 @@ export default function App() {
   };
 
   const fetchAppData = async () => {
+    if (!currentUser) return;
     setIsLoading(true);
     try {
       // 1. Fetch profile core stats
-      const profileRes = await fetch('/api/profile');
+      const profileRes = await apiFetch('/api/profile');
       const profileData = await profileRes.json();
       setTasks(profileData.tasks || []);
       setGoals(profileData.goals || []);
       setHabits(profileData.habits || []);
       setAnalytics(profileData.analytics || null);
+      setUserProfile(profileData.userProfile || null);
 
       // 2. Fetch calendar events
-      const calRes = await fetch('/api/calendar');
+      const calRes = await apiFetch('/api/calendar');
       const calData = await calRes.json();
       setCalendarEvents(calData || []);
 
       // 3. Fetch gmail commitments
-      const emailRes = await fetch('/api/gmail-commitments');
+      const emailRes = await apiFetch('/api/gmail-commitments');
       const emailData = await emailRes.json();
       setCommitments(emailData || []);
     } catch (err) {
@@ -113,14 +169,16 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetchAppData();
-  }, []);
+    if (currentUser) {
+      fetchAppData();
+    }
+  }, [currentUser]);
 
   const handleTriggerGlobalHeal = async () => {
     setIsLoading(true);
     showToast("Initializing Emergency System-Wide Self-Heal operation...");
     try {
-      const res = await fetch('/api/self-heal', {
+      const res = await apiFetch('/api/self-heal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ explicitReason: "Autonomous recovery trigger from main dashboard overview." })
@@ -147,6 +205,37 @@ export default function App() {
     ? tightTaskNames.map(name => `"${name}"`).join(', ') 
     : "your active plans";
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#f1f4df] flex flex-col items-center justify-center font-mono border-8 border-black text-black">
+        <div className="bg-white p-8 rounded border-4 border-black neo-shadow-black text-center space-y-4">
+          <RefreshCw className="w-10 h-10 animate-spin mx-auto text-[#ffa852]" />
+          <h2 className="font-extrabold text-lg uppercase tracking-tight">Initializing Life Saver</h2>
+          <p className="text-xs font-bold text-black/60">Verifying secure database credentials...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <AuthPage 
+        onAuthComplete={(user, dbData) => {
+          setCurrentUser(user);
+          if (dbData) {
+            setTasks(dbData.tasks || []);
+            setGoals(dbData.goals || []);
+            setHabits(dbData.habits || []);
+            setCalendarEvents(dbData.calendarEvents || []);
+            setCommitments(dbData.gmailCommitments || []);
+            setUserProfile(dbData.userProfile || null);
+          }
+          fetchAppData();
+        }} 
+      />
+    );
+  }
+
   return (
     <div className="flex h-screen bg-[#f1f4df] overflow-hidden text-black relative font-sans">
       
@@ -158,6 +247,8 @@ export default function App() {
         risksCount={highRiskCounts} 
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
+        userProfile={userProfile || undefined}
+        onLogOut={handleLogOut}
       />
 
       {/* Main Body */}
@@ -176,7 +267,7 @@ export default function App() {
             </button>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-xs font-bold text-black/60 font-mono hidden sm:inline-block">adhirajtiwari01@gmail.com</span>
+              <span className="text-xs font-bold text-black/60 font-mono hidden sm:inline-block">{userProfile?.email || currentUser?.email || "adhirajtiwari01@gmail.com"}</span>
               <span className="text-black/30 hidden sm:inline-block">•</span>
               <span className="text-xs text-black font-extrabold font-mono flex items-center gap-1.5 bg-[#dfbeff] px-3 py-1 rounded border-2 border-black neo-shadow-black-sm">
                 <Compass className="w-3.5 h-3.5 text-black animate-spin-slow" />

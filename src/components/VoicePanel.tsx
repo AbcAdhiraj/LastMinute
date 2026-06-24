@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mic, MicOff, Volume2, Sparkles, RefreshCw, Radio, PlayCircle, Command, HelpCircle } from 'lucide-react';
+import { apiFetch } from '../utils/api';
 
 interface VoicePanelProps {
   onCommandExecuted: () => void;
@@ -25,7 +26,7 @@ export function VoicePanel({ onCommandExecuted, isLoading, setIsLoading }: Voice
     setTranscription(commandText);
     setReplyText(null);
     try {
-      const res = await fetch('/api/voice/command', {
+      const res = await apiFetch('/api/voice/command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: commandText, command: commandText, returnAudio: true })
@@ -84,11 +85,11 @@ export function VoicePanel({ onCommandExecuted, isLoading, setIsLoading }: Voice
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
       {/* Main interaction canvas */}
-      <div className="lg:col-span-2 bg-white border border-stone-200/85 rounded-xl p-6 flex flex-col items-center justify-center text-center space-y-6 shadow-xs">
+      <div className="lg:col-span-2 bg-white border-4 border-black rounded-xl p-6 flex flex-col items-center justify-center text-center space-y-6 neo-shadow-black text-black">
         
         <div>
-          <h2 className="text-xs font-bold font-mono tracking-wider text-indigo-705 uppercase">Voice Operating System</h2>
-          <p className="text-xs text-stone-500 font-mono mt-1 font-medium">Talk to Goofy to edit schedules hands-free</p>
+          <h2 className="text-xs font-black font-mono tracking-wider text-black uppercase">Voice Operating System</h2>
+          <p className="text-xs text-black/60 font-mono mt-1 font-bold">Talk to Goofy to edit schedules hands-free</p>
         </div>
 
         {/* Recording active visualization widget of waves */}
@@ -100,19 +101,19 @@ export function VoicePanel({ onCommandExecuted, isLoading, setIsLoading }: Voice
                   key={idx}
                   animate={{ height: [`${val * 10}%`, `${val * 20}%`, `${val * 8}%`, `${val * 10}%`] }}
                   transition={{ repeat: Infinity, duration: 1.2 + Math.random() }}
-                  className="w-1.5 bg-indigo-500 rounded shadow-xs"
+                  className="w-1.5 bg-black rounded shadow-xs"
                 />
               ))}
             </div>
           ) : playingAudio ? (
             <div className="flex items-center gap-2">
-              <Radio className="w-5 h-5 text-emerald-600 animate-pulse" />
-              <span className="text-[10px] text-emerald-700 font-mono tracking-wide animate-pulse font-bold">PLAYING SPEEC AUDIO FEEDBACK...</span>
+              <Radio className="w-5 h-5 text-black stroke-[2.5px] animate-pulse" />
+              <span className="text-[10px] text-black font-mono tracking-wide animate-pulse font-black">PLAYING SPEECH AUDIO FEEDBACK...</span>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-1 text-stone-400">
-              <MicOff className="w-8 h-8 opacity-45 text-stone-400" />
-              <span className="text-[10px] font-mono uppercase tracking-widest text-stone-500 font-bold">Speech Idle</span>
+            <div className="flex flex-col items-center gap-1 text-black/55">
+              <MicOff className="w-8 h-8 opacity-45 text-black" />
+              <span className="text-[10px] font-mono uppercase tracking-widest text-black/60 font-black">Speech Idle</span>
             </div>
           )}
         </div>
@@ -120,18 +121,18 @@ export function VoicePanel({ onCommandExecuted, isLoading, setIsLoading }: Voice
         {/* Tactile core microphone trigger */}
         <button
           onClick={toggleMockRecording}
-          className={`w-16 h-16 rounded-full flex items-center justify-center border transition-all duration-150 relative cursor-pointer ${
+          className={`w-16 h-16 rounded-full flex items-center justify-center border-4 border-black transition-all duration-150 relative cursor-pointer ${
             isRecording
-              ? 'bg-rose-50 border-rose-300 text-rose-600 animate-pulse shadow-sm'
-              : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-650 text-white active:scale-95 shadow-md shadow-indigo-200/50'
+              ? 'bg-[#ff6161] text-black animate-pulse shadow-xs'
+              : 'bg-[#fff582] hover:bg-[#ffe555] text-black active:scale-95 neo-shadow-black-sm'
           }`}
         >
-          {isRecording ? <MicOff className="w-6 h-6 animate-pulse" /> : <Mic className="w-6 h-6" />}
+          {isRecording ? <MicOff className="w-6 h-6 animate-pulse" /> : <Mic className="w-6 h-6 stroke-[2.5px]" />}
         </button>
 
-        <p className="text-[11px] text-stone-505 max-w-sm font-mono leading-relaxed font-bold">
+        <p className="text-[11px] text-black/80 max-w-sm font-mono leading-relaxed font-bold">
           {isRecording ? (
-            <span className="text-rose-600 font-bold animate-pulse">Listening... Click microphone again to send voice command</span>
+            <span className="text-[#ff6161] font-black animate-pulse">Listening... Click microphone again to send voice command</span>
           ) : (
             "Click record, or use preset widgets below to send rapid cognitive speech commands."
           )}
@@ -140,31 +141,31 @@ export function VoicePanel({ onCommandExecuted, isLoading, setIsLoading }: Voice
       </div>
 
       {/* Side list of commands output transcription & audio feedback */}
-      <div className="bg-white border border-stone-200/80 rounded-xl p-5 space-y-4 h-fit shadow-xs">
+      <div className="bg-white border-4 border-black rounded-xl p-5 space-y-4 h-fit neo-shadow-black text-black">
         
-        <div className="border-b border-stone-200/60 pb-3 text-xs">
-          <span className="text-[9px] font-mono font-bold tracking-wider text-indigo-705 uppercase flex items-center gap-1">
-            <Command className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+        <div className="border-b-2 border-black pb-3 text-xs">
+          <span className="text-[9px] font-mono font-black tracking-wider text-black uppercase flex items-center gap-1">
+            <Command className="w-3.5 h-3.5 text-black stroke-[2.5px] animate-pulse" />
             Transcription Log
           </span>
-          <h3 className="text-xs font-semibold text-stone-850 mt-1">Processed Audio Diagnostics</h3>
+          <h3 className="text-xs font-black text-black mt-1">Processed Audio Diagnostics</h3>
         </div>
 
         {/* Presets and shortcut commands list */}
         <div className="space-y-2">
-          <span className="text-[9px] uppercase font-bold text-stone-400 font-mono tracking-wide">Command Presets</span>
+          <span className="text-[9px] uppercase font-black text-black/50 font-mono tracking-wide">Command Presets</span>
           <div className="space-y-2.5">
             {presets.map((preset, idx) => (
               <button
                 key={idx}
                 onClick={() => handleVoiceCommandSubmit(preset.text)}
-                className="w-full text-left p-3 bg-white border border-stone-200 hover:border-indigo-550/40 hover:bg-stone-50/50 text-xs text-stone-600 rounded-lg flex items-center justify-between transition-all cursor-pointer shadow-xs"
+                className="w-full text-left p-3 bg-white border-2 border-black hover:bg-neutral-50 hover:neo-shadow-black-sm text-xs text-black rounded-lg flex items-center justify-between transition-all cursor-pointer neo-shadow-black-sm"
               >
                 <div>
-                  <p className="font-bold text-stone-800">{preset.label}</p>
-                  <p className="text-[10px] text-stone-450 truncate max-w-[170px] font-mono font-medium">"{preset.text}"</p>
+                  <p className="font-black text-black">{preset.label}</p>
+                  <p className="text-[10px] text-black/60 truncate max-w-[170px] font-mono font-bold">"{preset.text}"</p>
                 </div>
-                <PlayCircle className="w-4 h-4 text-indigo-600 shrink-0" />
+                <PlayCircle className="w-4 h-4 text-black stroke-[2.5px] shrink-0" />
               </button>
             ))}
           </div>
@@ -175,17 +176,17 @@ export function VoicePanel({ onCommandExecuted, isLoading, setIsLoading }: Voice
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-3.5 bg-stone-50 border border-stone-200 rounded-lg text-xs leading-normal space-y-2 shadow-xs"
+            className="p-3.5 bg-[#dfbeff]/20 border-2 border-black rounded-lg text-xs leading-normal space-y-2 neo-shadow-black-sm text-black"
           >
             <div>
-              <span className="text-[8px] font-mono text-indigo-700 font-bold uppercase block">Transcription</span>
-              <p className="text-stone-850 font-bold italic">"{transcription}"</p>
+              <span className="text-[8px] font-mono text-black font-black uppercase block">Transcription</span>
+              <p className="text-black font-black italic">"{transcription}"</p>
             </div>
             
             {replyText && (
-              <div className="pt-2 border-t border-stone-200 text-emerald-805">
-                <span className="text-[8px] font-mono text-emerald-800 font-bold uppercase block">AI Reply</span>
-                <p className="text-[11px] leading-relaxed font-sans text-stone-800 font-semibold">{replyText}</p>
+              <div className="pt-2 border-t-2 border-black text-black">
+                <span className="text-[8px] font-mono text-black font-black uppercase block">AI Reply</span>
+                <p className="text-[11px] leading-relaxed font-sans text-black font-bold">{replyText}</p>
               </div>
             )}
           </motion.div>

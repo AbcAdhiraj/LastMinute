@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Target, CheckCircle2, Flame, Plus, RefreshCw, BarChart, ShieldAlert, Award } from 'lucide-react';
 import { Goal, Habit } from '../types';
+import { apiFetch } from '../utils/api';
 
 interface GoalsHabitsPanelProps {
   goals: Goal[];
@@ -42,7 +43,7 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
     setIsLoading(true);
     onShowToast?.(`Saving routine habit "${habitTitle}"...`);
     try {
-      const res = await fetch('/api/habits', {
+      const res = await apiFetch('/api/habits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: habitTitle, category: habitCategory })
@@ -70,7 +71,7 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
     setIsLoading(true);
     onShowToast?.(`Saving milestone goal "${goalTitle}"...`);
     try {
-      const res = await fetch('/api/goals', {
+      const res = await apiFetch('/api/goals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -99,7 +100,7 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
   const handleToggleHabit = async (id: string, titleName: string) => {
     onShowToast?.(`Toggling consistency state for routine "${titleName}"...`);
     try {
-      const res = await fetch(`/api/habits/${id}/toggle`, { method: 'PUT' });
+      const res = await apiFetch(`/api/habits/${id}/toggle`, { method: 'PUT' });
       if (res.ok) {
         onShowToast?.(`Routine "${titleName}" progress toggled successfully!`);
         onGoalHabitUpdated();
@@ -116,7 +117,7 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
     const finalVal = Math.min(goal.targetValue, Math.max(0, nextVal));
     onShowToast?.(`Updating progress of "${goal.title}" to ${finalVal} ${goal.unit}...`);
     try {
-      const res = await fetch(`/api/goals/${goal.id}`, {
+      const res = await apiFetch(`/api/goals/${goal.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentValue: finalVal })
@@ -137,25 +138,25 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       
       {/* Habits tracking card */}
-      <div className="bg-gradient-to-br from-[#0c0c0c] to-black border border-neutral-850 rounded-xl p-5 space-y-4 h-fit shadow-2xl">
-        <div className="flex items-center justify-between border-b border-neutral-805/80 pb-3">
+      <div className="bg-white border-4 border-black rounded-xl p-5 space-y-4 h-fit neo-shadow-black text-black">
+        <div className="flex items-center justify-between border-b-2 border-black pb-3">
           <div className="flex items-center gap-2">
-            <Flame className="w-5 h-5 text-orange-450 fill-orange-500/10 animate-pulse" />
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Habit Consistency</h2>
+            <Flame className="w-5 h-5 text-black stroke-[2.5px] animate-pulse" />
+            <h2 className="text-sm font-black text-black uppercase tracking-wide">Habit Consistency</h2>
           </div>
           <button
             onClick={() => setShowAddHabit(!showAddHabit)}
-            className="text-blue-400 hover:text-blue-300 flex items-center gap-1 text-xs font-mono font-bold cursor-pointer"
+            className="bg-[#dfbeff] hover:bg-[#c99eff] text-black border-2 border-black font-black px-2.5 py-1 rounded flex items-center gap-1 text-xs font-mono cursor-pointer shadow-xs active:translate-y-0.5"
           >
-            <Plus className="w-3.5 h-3.5 text-blue-400" />
+            <Plus className="w-3.5 h-3.5 text-black stroke-[2.5px]" />
             New Habit
           </button>
         </div>
 
         {/* Create Habit form */}
         {showAddHabit && (
-          <form onSubmit={handleCreateHabit} className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg space-y-3 shadow-md">
-            <h3 className="text-[10px] font-bold font-mono tracking-wider text-blue-450 uppercase">Create Daily Routine</h3>
+          <form onSubmit={handleCreateHabit} className="bg-white border-2 border-black p-4 rounded-lg space-y-3 neo-shadow-black-sm text-black">
+            <h3 className="text-[10px] font-black font-mono tracking-wide text-black bg-[#fff582] px-2 py-0.5 border-2 border-black inline-block uppercase">Create Daily Routine</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
               <input
                 type="text"
@@ -163,12 +164,12 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
                 placeholder="E.g., Morning 30m HIIT"
                 value={habitTitle}
                 onChange={(e) => setHabitTitle(e.target.value)}
-                className="bg-neutral-950 border border-neutral-800 px-2.5 py-1.5 rounded text-white focus:outline-none focus:border-blue-500 font-semibold"
+                className="bg-white border-2 border-black px-2.5 py-1.5 rounded text-black focus:outline-none font-bold"
               />
               <select
                 value={habitCategory}
                 onChange={(e) => setHabitCategory(e.target.value)}
-                className="bg-neutral-950 border border-neutral-800 px-2 py-1.5 rounded text-neutral-300 focus:outline-none font-semibold"
+                className="bg-white border-2 border-black px-2 py-1.5 rounded text-black focus:outline-none font-bold"
               >
                 <option value="health">Health & Strength</option>
                 <option value="study">LeetCode & Study</option>
@@ -179,13 +180,13 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
               <button
                 type="button"
                 onClick={() => setShowAddHabit(false)}
-                className="px-2.5 py-1 border border-neutral-750 text-neutral-400 hover:bg-neutral-800 text-[10px] rounded cursor-pointer font-semibold"
+                className="px-2.5 py-1 border-2 border-black text-black hover:bg-neutral-50 text-[10px] rounded cursor-pointer font-bold"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="bg-gradient-to-r from-neutral-200 via-white to-neutral-200 hover:brightness-95 text-black font-extrabold text-[10px] px-3 py-1 rounded cursor-pointer"
+                className="bg-[#b8f598] hover:bg-[#a0e080] text-black border-2 border-black font-black text-[10px] px-3 py-1 rounded cursor-pointer active:translate-y-0.5 shadow-xs"
               >
                 Save Routine
               </button>
@@ -200,29 +201,29 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
             const isCompletedToday = habit.lastCompleted === today;
 
             return (
-              <div key={habit.id} className="p-3 bg-neutral-950 rounded-lg border border-neutral-855 flex items-center justify-between text-xs hover:bg-neutral-900/40 transition-colors shadow-xs">
+              <div key={habit.id} className="p-3 bg-white rounded-lg border-2 border-black flex items-center justify-between text-xs hover:bg-neutral-50 transition-colors neo-shadow-black-sm text-black">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => handleToggleHabit(habit.id, habit.title)}
-                    className={`w-6 h-6 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                    className={`w-7 h-7 rounded-full border-2 border-black flex items-center justify-center transition-all cursor-pointer ${
                       isCompletedToday
-                        ? 'bg-emerald-650 border border-emerald-500 text-white'
-                        : 'border border-neutral-700 hover:border-blue-400 bg-neutral-900 text-neutral-500'
+                        ? 'bg-black text-white'
+                        : 'bg-white hover:bg-neutral-100 text-black'
                     }`}
                   >
                     <CheckCircle2 className="w-4 h-4" />
                   </button>
                   <div>
-                    <p className={`font-bold text-white ${isCompletedToday ? 'line-through text-neutral-500 font-semibold' : ''}`}>
+                    <p className={`font-black text-black ${isCompletedToday ? 'line-through text-black/50 font-bold' : ''}`}>
                       {habit.title}
                     </p>
-                    <span className="text-[9px] font-mono text-neutral-500 uppercase font-bold">{habit.category}</span>
+                    <span className="text-[9px] font-mono text-black/50 uppercase font-bold">{habit.category}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 bg-neutral-900 px-2.5 py-1 rounded border border-neutral-800 shadow-xs">
-                  <Flame className="w-3.5 h-3.5 text-orange-450 animate-pulse" />
-                  <span className="font-extrabold text-neutral-300 font-mono text-[10px]">{habit.streak}d Streak</span>
+                <div className="flex items-center gap-2 bg-[#ffa852] text-black px-2.5 py-1 rounded border-2 border-black shadow-xs font-black">
+                  <Flame className="w-3.5 h-3.5 text-black animate-pulse" />
+                  <span className="font-black font-mono text-[10px]">{habit.streak}d Streak</span>
                 </div>
               </div>
             );
@@ -231,25 +232,25 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
       </div>
 
       {/* Goals checking and prediction card */}
-      <div className="bg-gradient-to-br from-[#0c0c0c] to-black border border-neutral-850 rounded-xl p-5 space-y-4 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-neutral-805/80 pb-3">
+      <div className="bg-white border-4 border-black rounded-xl p-5 space-y-4 neo-shadow-black text-black">
+        <div className="flex items-center justify-between border-b-2 border-black pb-3">
           <div className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-blue-450 fill-blue-550/10" />
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Milestone Goals</h2>
+            <Target className="w-5 h-5 text-black stroke-[2.5px]" />
+            <h2 className="text-sm font-black text-black uppercase tracking-wide">Milestone Goals</h2>
           </div>
           <button
             onClick={() => setShowAddGoal(!showAddGoal)}
-            className="text-blue-405 hover:text-blue-300 flex items-center gap-1 text-xs font-mono font-bold cursor-pointer"
+            className="bg-[#dfbeff] hover:bg-[#c99eff] text-black border-2 border-black font-black px-2.5 py-1 rounded flex items-center gap-1 text-xs font-mono cursor-pointer shadow-xs active:translate-y-0.5"
           >
-            <Plus className="w-3.5 h-3.5 text-blue-400" />
+            <Plus className="w-3.5 h-3.5 text-black stroke-[2.5px]" />
             New Goal
           </button>
         </div>
 
         {/* Create Goal form */}
         {showAddGoal && (
-          <form onSubmit={handleCreateGoal} className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg space-y-3 shadow-md">
-            <h3 className="text-[10px] font-bold font-mono tracking-wider text-blue-450 uppercase">Define Target Milestone</h3>
+          <form onSubmit={handleCreateGoal} className="bg-white border-2 border-black p-4 rounded-lg space-y-3 neo-shadow-black-sm text-black">
+            <h3 className="text-[10px] font-black font-mono tracking-wide text-black bg-[#fff582] px-2 py-0.5 border-2 border-black inline-block uppercase">Define Target Milestone</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
               <input
                 type="text"
@@ -257,7 +258,7 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
                 placeholder="E.g., Complete 15 applications"
                 value={goalTitle}
                 onChange={(e) => setGoalTitle(e.target.value)}
-                className="bg-neutral-950 border border-neutral-800 px-2.5 py-1.5 rounded text-white focus:outline-none focus:border-blue-500 font-semibold"
+                className="bg-white border-2 border-black px-2.5 py-1.5 rounded text-black focus:outline-none font-bold"
               />
               <div className="grid grid-cols-2 gap-2">
                 <input
@@ -265,14 +266,14 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
                   placeholder="Target"
                   value={goalTarget}
                   onChange={(e) => setGoalTarget(Number(e.target.value))}
-                  className="bg-neutral-950 border border-neutral-800 px-2 py-1 text-white focus:outline-none font-mono font-semibold"
+                  className="bg-white border-2 border-black px-2 py-1 text-black focus:outline-none font-mono font-bold"
                 />
                 <input
                   type="text"
                   placeholder="Unit: problems"
                   value={goalUnit}
                   onChange={(e) => setGoalUnit(e.target.value)}
-                  className="bg-neutral-950 border border-neutral-800 px-2 py-1 text-white focus:outline-none font-semibold"
+                  className="bg-white border-2 border-black px-2 py-1 text-black focus:outline-none font-bold"
                 />
               </div>
             </div>
@@ -280,13 +281,13 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
               <button
                 type="button"
                 onClick={() => setShowAddGoal(false)}
-                className="px-2.5 py-1 border border-neutral-750 text-neutral-400 hover:bg-neutral-800 text-[10px] rounded cursor-pointer font-semibold"
+                className="px-2.5 py-1 border-2 border-black text-black hover:bg-neutral-50 text-[10px] rounded cursor-pointer font-bold"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="bg-gradient-to-r from-neutral-200 via-white to-neutral-200 hover:brightness-95 text-black font-extrabold text-[10px] px-3 py-1 rounded cursor-pointer"
+                className="bg-[#b8f598] hover:bg-[#a0e080] text-black border-2 border-black font-black text-[10px] px-3 py-1 rounded cursor-pointer active:translate-y-0.5 shadow-xs"
               >
                 Save Milestone
               </button>
@@ -301,26 +302,26 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
             const pred = goal.completionPrediction;
 
             return (
-              <div key={goal.id} className="p-4 bg-neutral-950 rounded-lg border border-neutral-855 space-y-3 text-xs shadow-md">
+              <div key={goal.id} className="p-4 bg-white rounded-lg border-2 border-black space-y-3 text-xs neo-shadow-black-sm text-black">
                 
                 <div className="flex items-start justify-between gap-3 select-none">
                   <div>
-                    <h3 className="font-bold text-white">{goal.title}</h3>
-                    <span className="text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-tight">{goal.category}</span>
+                    <h3 className="font-black text-black">{goal.title}</h3>
+                    <span className="text-[9px] font-mono font-black text-black/50 uppercase tracking-tight">{goal.category}</span>
                   </div>
                   
                   {/* Plus/Minus touch helpers */}
-                  <div className="flex items-center gap-1.5 border border-neutral-800 rounded bg-neutral-900 p-0.5 font-mono text-neutral-300">
+                  <div className="flex items-center gap-1.5 border-2 border-black rounded bg-white p-0.5 font-mono text-black">
                     <button
                       onClick={() => handleUpdateGoalProgress(goal, goal.currentValue - 1)}
-                      className="px-1.5 py-0.5 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded text-[10px] cursor-pointer font-extrabold"
+                      className="px-1.5 py-0.5 hover:bg-neutral-100 text-black rounded text-[10px] cursor-pointer font-black"
                     >
                       -
                     </button>
-                    <span className="px-1.5 font-extrabold text-white text-[10px]">{goal.currentValue} / {goal.targetValue}</span>
+                    <span className="px-1.5 font-black text-black text-[10px]">{goal.currentValue} / {goal.targetValue}</span>
                     <button
                       onClick={() => handleUpdateGoalProgress(goal, goal.currentValue + 1)}
-                      className="px-1.5 py-0.5 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded text-[10px] cursor-pointer font-extrabold"
+                      className="px-1.5 py-0.5 hover:bg-neutral-100 text-black rounded text-[10px] cursor-pointer font-black"
                     >
                       +
                     </button>
@@ -329,18 +330,18 @@ export function GoalsHabitsPanel({ goals, habits, onGoalHabitUpdated, isLoading,
 
                 {/* Progress bar */}
                 <div className="space-y-1 select-none">
-                  <div className="w-full bg-neutral-900 rounded-full h-1.5 overflow-hidden border border-neutral-800">
+                  <div className="w-full bg-neutral-50 rounded-full h-3 overflow-hidden border-2 border-black">
                     <div
-                      className="bg-gradient-to-r from-blue-500 to-blue-410 h-1.5 rounded-full transition-all duration-300"
+                      className="bg-[#b8f598] h-full rounded-full border-r-2 border-black transition-all duration-300"
                       style={{ width: `${Math.min(100, Math.max(5, ratio))}%` }}
                     />
                   </div>
                   
                   {/* AI prediction overlay */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[10px] font-mono leading-none pt-1 gap-1.5 font-bold">
-                    <span className="text-neutral-500">Progress: {Math.round(ratio)}%</span>
-                    <span className="flex items-center gap-1 text-orange-400">
-                      <Award className="w-3.5 h-3.5 text-orange-400" />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[10px] font-mono leading-none pt-1 gap-1.5 font-black">
+                    <span className="text-black/60">Progress: {Math.round(ratio)}%</span>
+                    <span className="flex items-center gap-1 text-black bg-[#ffe555] px-2 py-0.5 border-2 border-black rounded">
+                      <Award className="w-3.5 h-3.5 text-black" />
                       AI Prediction: {pred}% Completion probability
                     </span>
                   </div>

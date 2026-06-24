@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Calendar, Clock, MapPin, Car, Plus, Compass, Check, AlertCircle, RefreshCw, Eye } from 'lucide-react';
 import { CalendarEvent } from '../types';
 import { googleSignIn, getAccessToken } from '../utils/googleAuth';
+import { apiFetch } from '../utils/api';
 
 interface CalendarPanelProps {
   events: CalendarEvent[];
@@ -42,7 +43,7 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading,
   const queryTransitDetails = async () => {
     setMapsLoading(true);
     try {
-      const res = await fetch(`/api/maps/travel-time?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`);
+      const res = await apiFetch(`/api/maps/travel-time?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`);
       const payload = await res.json();
       setTravelReport(payload);
     } catch (err) {
@@ -59,7 +60,7 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading,
     setIsLoading(true);
     onShowToast?.(`Inserting custom calendar slot "${title}"...`);
     try {
-      const res = await fetch('/api/calendar', {
+      const res = await apiFetch('/api/calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -154,7 +155,7 @@ export function CalendarPanel({ events, onEventCreated, isLoading, setIsLoading,
     }
 
     // Now send the synced events to server
-    const response = await fetch('/api/calendar/sync-google-events', {
+    const response = await apiFetch('/api/calendar/sync-google-events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ events: eventsToSync })

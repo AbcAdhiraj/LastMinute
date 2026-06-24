@@ -20,111 +20,101 @@ export function AnalyticsPanel({ analytics }: AnalyticsPanelProps) {
     <div className="space-y-6">
       
       {/* Upper score indicators array */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-black">
         
-        <div className="bg-gradient-to-br from-neutral-900 via-neutral-950 to-black p-4 rounded-xl border border-neutral-800/80 space-y-1 shadow-md">
-          <div className="flex items-center justify-between text-neutral-400 font-bold">
-            <span className="text-[10px] uppercase font-bold font-mono tracking-tight text-neutral-500">Productivity score</span>
-            <Zap className="w-4 h-4 text-orange-450 fill-orange-500/10 animate-pulse" />
+        <div className="bg-white p-4 rounded-xl border-2 border-black space-y-1 neo-shadow-black-sm">
+          <div className="flex items-center justify-between font-black">
+            <span className="text-[10px] uppercase font-black font-mono tracking-tight text-black/60">Productivity score</span>
+            <Zap className="w-4 h-4 text-black stroke-[2.5px] animate-pulse" />
           </div>
           <div className="flex items-baseline gap-1.5 pt-1">
-            <span className="text-xl font-bold font-mono tracking-tight text-white">{analytics.productivityScore}</span>
-            <span className="text-[10px] text-neutral-400 font-mono font-bold">/ 100</span>
+            <span className="text-xl font-black font-mono tracking-tight text-black">{analytics.productivityScore}</span>
+            <span className="text-[10px] text-black/60 font-mono font-black">/ 100</span>
           </div>
-          <span className="text-[9px] text-neutral-500 font-mono block">Behavioral efficiency rating</span>
+          <span className="text-[9px] text-black/60 font-mono block font-bold">Behavioral efficiency rating</span>
         </div>
 
-        <div className="bg-gradient-to-br from-neutral-900 via-neutral-950 to-black p-4 rounded-xl border border-neutral-800/80 space-y-1 shadow-md">
-          <div className="flex items-center justify-between text-neutral-400 font-bold">
-            <span className="text-[10px] uppercase font-bold font-mono tracking-tight text-neutral-500">Completions</span>
-            <TrendingUp className="w-4 h-4 text-emerald-450" />
+        <div className="bg-white p-4 rounded-xl border-2 border-black space-y-1 neo-shadow-black-sm">
+          <div className="flex items-center justify-between font-black">
+            <span className="text-[10px] uppercase font-black font-mono tracking-tight text-black/60">Completions</span>
+            <TrendingUp className="w-4 h-4 text-black stroke-[2.5px]" />
           </div>
           <div className="flex items-baseline gap-1.5 pt-1">
-            <span className="text-xl font-bold font-mono tracking-tight text-emerald-400">{analytics.completionRate}%</span>
-            <span className="text-[10px] text-neutral-400 font-mono font-semibold">Rate</span>
+            <span className="text-xl font-black font-mono tracking-tight text-black">{analytics.completionRate}%</span>
+            <span className="text-[10px] text-black/60 font-mono font-black">Rate</span>
           </div>
-          <span className="text-[9px] text-neutral-500 font-mono block font-medium">{analytics.completedTasks} completed • {analytics.missedTasks} missed</span>
+          <span className="text-[9px] text-black/60 font-mono block font-bold">{analytics.completedTasks} completed • {analytics.missedTasks} missed</span>
         </div>
 
-        <div className="bg-gradient-to-br from-neutral-900 via-neutral-950 to-black p-4 rounded-xl border border-neutral-800/80 space-y-1 shadow-md">
-          <div className="flex items-center justify-between text-neutral-400 font-bold">
-            <span className="text-[10px] uppercase font-bold font-mono tracking-tight text-neutral-500">Deep Focus Hours</span>
-            <Focus className="w-4 h-4 text-blue-450 animate-pulse" />
+        <div className="bg-white p-4 rounded-xl border-2 border-black space-y-1 neo-shadow-black-sm">
+          <div className="flex items-center justify-between font-black">
+            <span className="text-[10px] uppercase font-black font-mono tracking-tight text-black/60">Deep Focus Hours</span>
+            <Focus className="w-4 h-4 text-black stroke-[2.5px] animate-pulse" />
           </div>
           <div className="flex items-baseline gap-1.5 pt-1">
-            <span className="text-xl font-bold font-mono tracking-tight text-blue-400">{analytics.deepWorkHours}h</span>
-            <span className="text-[10px] text-blue-400 font-mono font-bold">Slotted</span>
+            <span className="text-xl font-black font-mono tracking-tight text-black">{analytics.deepWorkHours}h</span>
+            <span className="text-[10px] text-black/60 font-mono font-black">Slotted</span>
           </div>
-          <span className="text-[9px] text-neutral-500 font-mono block font-medium">Study & deep workload blocks</span>
+          <span className="text-[9px] text-black/60 font-mono block font-bold">Study & deep workload blocks</span>
         </div>
 
-        <div className="bg-gradient-to-br from-neutral-900 via-neutral-950 to-black p-4 rounded-xl border border-neutral-800/80 space-y-1 shadow-md">
-          <div className="flex items-center justify-between text-neutral-400 font-bold">
-            <span className="text-[10px] uppercase font-bold font-mono tracking-tight text-neutral-500">Meetings block</span>
-            <Hourglass className="w-4 h-4 text-orange-400 animate-pulse" />
+        <div className="bg-white p-4 rounded-xl border-2 border-black space-y-1 neo-shadow-black-sm">
+          <div className="flex items-center justify-between font-black">
+            <span className="text-[10px] uppercase font-black font-mono tracking-tight text-black/60">Meetings block</span>
+            <Hourglass className="w-4 h-4 text-black stroke-[2.5px] animate-pulse" />
           </div>
           <div className="flex items-baseline gap-1.5 pt-1">
-            <span className="text-xl font-bold font-mono tracking-tight text-white">{Math.round(analytics.meetingTime / 60)}h</span>
-            <span className="text-[10px] text-neutral-400 font-mono font-semibold">Duration</span>
+            <span className="text-xl font-black font-mono tracking-tight text-black">{Math.round(analytics.meetingTime / 60)}h</span>
+            <span className="text-[10px] text-black/60 font-mono font-black">Duration</span>
           </div>
-          <span className="text-[9px] text-neutral-500 font-mono block font-medium">{Math.round(analytics.meetingTime)} total synced minutes</span>
+          <span className="text-[9px] text-black/60 font-mono block font-bold">{Math.round(analytics.meetingTime)} total synced minutes</span>
         </div>
 
       </div>
 
       {/* Charts panel - Trend over week & Category allocations */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-black">
         
         {/* Weekly performance area graph */}
-        <div className="lg:col-span-2 bg-gradient-to-br from-[#0c0c0c] to-black border border-neutral-850 p-5 rounded-xl space-y-3 shadow-2xl">
-          <div className="flex items-center justify-between border-b border-neutral-805/80 pb-3 mb-2">
-            <h3 className="text-xs font-bold font-mono text-blue-400 uppercase tracking-wide">Weekly Focus & Completion Trends</h3>
-            <span className="text-[10px] text-neutral-500 font-mono font-bold">Past 7 Operational Days</span>
+        <div className="lg:col-span-2 bg-white border-4 border-black p-5 rounded-xl space-y-3 neo-shadow-black">
+          <div className="flex items-center justify-between border-b-2 border-black pb-3 mb-2">
+            <h3 className="text-xs font-black font-mono text-black uppercase tracking-wide">Weekly Focus & Completion Trends</h3>
+            <span className="text-[10px] text-black/60 font-mono font-black">Past 7 Operational Days</span>
           </div>
 
           <div className="w-full h-64 text-[10px] font-mono leading-none">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={analytics.weeklyTrends} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorDeepWork" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
-                <XAxis dataKey="week" stroke="rgba(255,255,255,0.3)" tickLine={false} />
-                <YAxis stroke="rgba(255,255,255,0.3)" tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: '#090909', backdropFilter: 'blur(8px)', borderColor: '#222222', color: '#f5f5f5', borderRadius: '8px', fontSize: '10px', fontFamily: 'monospace' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                <XAxis dataKey="week" stroke="#000" tickLine={false} />
+                <YAxis stroke="#000" tickLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: '2px', color: '#000000', borderRadius: '4px', fontSize: '10px', fontFamily: 'monospace', fontWeight: 'bold' }} />
                 <Legend />
-                <Area type="monotone" name="Deep Focus (h)" dataKey="deepWork" stroke="#3b82f6" fillOpacity={1} fill="url(#colorDeepWork)" strokeWidth={2.5} />
-                <Area type="monotone" name="Tasks Completed" dataKey="completed" stroke="#10b981" fillOpacity={1} fill="url(#colorCompleted)" strokeWidth={2} />
+                <Area type="monotone" name="Deep Focus (h)" dataKey="deepWork" stroke="#000000" fill="#98e2ff" fillOpacity={0.8} strokeWidth={2.5} />
+                <Area type="monotone" name="Tasks Completed" dataKey="completed" stroke="#000000" fill="#b8f598" fillOpacity={0.8} strokeWidth={2.5} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Category distribution bar graph */}
-        <div className="bg-gradient-to-br from-[#0c0c0c] to-black border border-neutral-850 p-5 rounded-xl space-y-3 shadow-2xl">
-          <div className="flex items-center justify-between border-b border-neutral-805/80 pb-3 mb-2">
-            <h3 className="text-xs font-bold font-mono text-blue-400 uppercase tracking-wide">Workload Category Count</h3>
-            <span className="text-[10px] text-neutral-500 font-mono font-bold">Active slots</span>
+        <div className="bg-white border-4 border-black p-5 rounded-xl space-y-3 neo-shadow-black">
+          <div className="flex items-center justify-between border-b-2 border-black pb-3 mb-2">
+            <h3 className="text-xs font-black font-mono text-black uppercase tracking-wide">Workload Category Count</h3>
+            <span className="text-[10px] text-black/60 font-mono font-black">Active slots</span>
           </div>
 
           <div className="w-full h-64 text-[10px] font-mono">
             {categoryData.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-neutral-500 font-mono text-xs font-bold">No entries parsed</div>
+              <div className="flex items-center justify-center h-full text-black/50 font-mono text-xs font-black">No entries parsed</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={categoryData} margin={{ top: 10, right: 10, left: -30, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
-                  <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" tickLine={false} />
-                  <YAxis stroke="rgba(255,255,255,0.3)" tickLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: '#090909', backdropFilter: 'blur(8px)', borderColor: '#222222', color: '#f5f5f5', borderRadius: '8px', fontSize: '10px', fontFamily: 'monospace' }} />
-                  <Bar dataKey="value" name="Commitment Volume" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                  <XAxis dataKey="name" stroke="#000" tickLine={false} />
+                  <YAxis stroke="#000" tickLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: '2px', color: '#000000', borderRadius: '4px', fontSize: '10px', fontFamily: 'monospace', fontWeight: 'bold' }} />
+                  <Bar dataKey="value" name="Commitment Volume" fill="#dfbeff" stroke="#000000" strokeWidth={2} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -134,34 +124,34 @@ export function AnalyticsPanel({ analytics }: AnalyticsPanelProps) {
       </div>
 
       {/* Task Completion Probability Trend & AI coach insights card */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-black">
         
         {/* Weekly Task Completion Probability trend line chart */}
-        <div className="lg:col-span-2 bg-gradient-to-br from-[#0c0c0c] to-black border border-neutral-850 p-5 rounded-xl space-y-3 shadow-2xl">
-          <div className="flex items-center justify-between border-b border-neutral-805/80 pb-3 mb-2">
-            <h3 className="text-xs font-bold font-mono text-orange-400 uppercase tracking-wide flex items-center gap-1.5">
-              <TrendingUp className="w-4.5 h-4.5 text-orange-400 animate-pulse" />
+        <div className="lg:col-span-2 bg-white border-4 border-black p-5 rounded-xl space-y-3 neo-shadow-black">
+          <div className="flex items-center justify-between border-b-2 border-black pb-3 mb-2">
+            <h3 className="text-xs font-black font-mono text-black uppercase tracking-wide flex items-center gap-1.5">
+              <TrendingUp className="w-4.5 h-4.5 text-black stroke-[2.5px]" />
               Task Completion Probability Trend
             </h3>
-            <span className="text-[10px] text-neutral-500 font-mono font-bold">Past 7 Days Momentum</span>
+            <span className="text-[10px] text-black/60 font-mono font-black">Past 7 Days Momentum</span>
           </div>
 
           <div className="w-full h-64 text-[10px] font-mono leading-none">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={analytics.weeklyTrends} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
-                <XAxis dataKey="week" stroke="rgba(255,255,255,0.3)" tickLine={false} />
-                <YAxis stroke="rgba(255,255,255,0.3)" tickLine={false} domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
-                <Tooltip contentStyle={{ backgroundColor: '#090909', backdropFilter: 'blur(8px)', borderColor: '#222222', color: '#f5f5f5', borderRadius: '8px', fontSize: '10px', fontFamily: 'monospace' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                <XAxis dataKey="week" stroke="#000" tickLine={false} />
+                <YAxis stroke="#000" tickLine={false} domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
+                <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: '2px', color: '#000000', borderRadius: '4px', fontSize: '10px', fontFamily: 'monospace', fontWeight: 'bold' }} />
                 <Legend />
                 <Line 
                   type="monotone" 
                   name="Completion Probability (%)" 
                   dataKey="probability" 
-                  stroke="#f97316" 
+                  stroke="#000000" 
                   strokeWidth={3} 
                   activeDot={{ r: 8 }} 
-                  dot={{ strokeWidth: 2, r: 4, stroke: "#ffffff" }} 
+                  dot={{ strokeWidth: 2, r: 4, stroke: "#000000", fill: "#ffa852" }} 
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -169,32 +159,32 @@ export function AnalyticsPanel({ analytics }: AnalyticsPanelProps) {
         </div>
 
         {/* AI coach insights card */}
-        <div className="bg-gradient-to-br from-neutral-900 to-black border border-neutral-850/80 p-5 rounded-xl space-y-4 shadow-2xl flex flex-col justify-between">
+        <div className="bg-white border-4 border-black p-5 rounded-xl space-y-4 neo-shadow-black flex flex-col justify-between text-black">
           <div>
-            <div className="flex items-center gap-2 border-b border-neutral-805/80 pb-3 mb-3">
-              <Star className="w-4.5 h-4.5 text-blue-400 fill-blue-500/10 animate-pulse" />
-              <h3 className="text-xs font-bold font-mono text-white uppercase tracking-wide">Gemini Cognitive Insights</h3>
+            <div className="flex items-center gap-2 border-b-2 border-black pb-3 mb-3">
+              <Star className="w-4.5 h-4.5 text-black stroke-[2.5px] animate-pulse" />
+              <h3 className="text-xs font-black font-mono text-black uppercase tracking-wide">Gemini Cognitive Insights</h3>
             </div>
 
             <div className="space-y-3 text-xs">
               
-              <div className="p-3 bg-blue-950/15 border border-blue-900/40 rounded-lg space-y-1.5 leading-relaxed shadow-sm">
-                <div className="flex items-center gap-2 font-bold text-blue-300">
-                  <Zap className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+              <div className="p-3 bg-[#98e2ff]/20 border-2 border-black rounded-lg space-y-1.5 leading-relaxed shadow-xs">
+                <div className="flex items-center gap-2 font-black text-black">
+                  <Zap className="w-3.5 h-3.5 text-black stroke-[2.5px] animate-pulse" />
                   <span className="text-[10px] uppercase font-mono tracking-tight">Evening Peak Focus</span>
                 </div>
-                <p className="text-neutral-300 text-[11px] font-mono leading-normal font-medium">
-                  Your highest consistency occurs between <span className="text-blue-400 font-bold">8:00 PM and 11:00 PM</span>. Suggesting buffer peaks here.
+                <p className="text-black text-[11px] font-mono leading-normal font-bold">
+                  Your highest consistency occurs between <span className="bg-[#fff582] border border-black px-1 py-0.5 rounded font-black">8:00 PM and 11:00 PM</span>. Suggesting buffer peaks here.
                 </p>
               </div>
 
-              <div className="p-3 bg-orange-950/15 border border-orange-900/40 rounded-lg space-y-1.5 leading-relaxed shadow-sm">
-                <div className="flex items-center gap-2 font-bold text-orange-350">
-                  <AlertCircle className="w-3.5 h-3.5 text-orange-400 animate-bounce" />
+              <div className="p-3 bg-[#ffa852]/20 border-2 border-black rounded-lg space-y-1.5 leading-relaxed shadow-xs">
+                <div className="flex items-center gap-2 font-black text-black">
+                  <AlertCircle className="w-3.5 h-3.5 text-black stroke-[2.5px] animate-bounce" />
                   <span className="text-[10px] uppercase font-mono tracking-tight">Ingestion delay Friction</span>
                 </div>
-                <p className="text-neutral-305 text-[11px] font-mono leading-normal font-medium">
-                  Commitments created less than <span className="text-orange-400 font-bold">3 days before deadlines</span> fail 68% of the time.
+                <p className="text-black text-[11px] font-mono leading-normal font-bold">
+                  Commitments created less than <span className="bg-[#ff6161] text-black border border-black px-1 py-0.5 rounded font-black">3 days before deadlines</span> fail 68% of the time.
                 </p>
               </div>
 

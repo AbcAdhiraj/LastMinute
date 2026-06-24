@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Send, HelpCircle, Activity, Heart, ShieldAlert, Cpu, HeartHandshake } from 'lucide-react';
+import { apiFetch } from '../utils/api';
 
 interface Message {
   id: string;
@@ -61,7 +62,7 @@ export function CopilotPanel({ onSelfHealTriggered, isLoading, setIsLoading }: C
       
       setTimeout(async () => {
         try {
-          const res = await fetch('/api/self-heal', { method: 'POST' });
+          const res = await apiFetch('/api/self-heal', { method: 'POST' });
           const parsed = await res.json();
           onSelfHealTriggered(); // update parent tasks list
           
@@ -92,7 +93,7 @@ export function CopilotPanel({ onSelfHealTriggered, isLoading, setIsLoading }: C
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/copilot', {
+      const res = await apiFetch('/api/copilot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: textToSend })
