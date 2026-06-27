@@ -159,5 +159,15 @@ export interface AppDatabase {
     avatarUrl: string;
     joinedDate: string;
     lastActive: string;
+    focusPeriod?: 'morning' | 'afternoon' | 'evening' | 'night';
+    leastProductivePeriod?: 'morning' | 'afternoon' | 'evening' | 'night';
+    focusDurationMins?: number;
+    maxDailySessions?: number;
+    sessionPreference?: 'long_deep' | 'short_breaks';
+    dailyBufferMins?: number;
+    breakFrequencyMins?: number;
+    breakDurationMins?: number;
+    pressurePreference?: 'pressure_deadline' | 'early_prep';
+    workingStyle?: string;
   };
 }

@@ -202,76 +202,29 @@ function calculateAnalyticsModel(db: any): Analytics {
  * Looking for 1 or 2-hour slots during 09:00 - 21:00 over the next 7 days, excluding overlaps.
  */
 function findFreeBlocks(db: AppDatabase, hoursNeeded: number): { start: string; end: string }[] {
-  const blocks: { start: string; end: string }[] = [];
-  const now = new Date("2026-06-22T11:00:00-07:00"); // Standard mock session current time
-
-  // Build list of existing blocker segments. Combine calendar events with scheduled sessions.
-  const blockers: { start: number; end: number }[] = [];
-  
-  db.calendarEvents.forEach(e => {
-    // Add commute time as well
-    const startMs = new Date(e.start).getTime() - (e.travelTime || 0) * 60 * 1000;
-    const endMs = new Date(e.end).getTime();
-    blockers.push({ start: startMs, end: endMs });
-  });
-
-  db.scheduledSessions.forEach(s => {
-    if (s.status === 'scheduled' || s.status === 'completed') {
-      blockers.push({ start: new Date(s.start).getTime(), end: new Date(s.end).getTime() });
-    }
-  });
-
-  // Scan next 7 days
-  let durationLeft = hoursNeeded;
-  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-    if (durationLeft <= 0) break;
-
-    const testDay = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
-    // Working hours: 09:00 to 20:00
-    const startHour = dayOffset === 0 ? Math.max(9, now.getHours() + 1) : 9;
-    
-    for (let h = startHour; h < 20; h++) {
-      if (durationLeft <= 0) break;
-
-      const blockStart = new Date(testDay);
-      blockStart.setHours(h, 0, 0, 0);
-      const blockEnd = new Date(testDay);
-      blockEnd.setHours(h + 2, 0, 0, 0); // try 2-hour slots
-
-      const startMs = blockStart.getTime();
-      const endMs = blockEnd.getTime();
-
-      // Check if this slot overlaps with any blockers
-      const hasOverlap = blockers.some(b => {
-        return (startMs < b.end && endMs > b.start);
-      });
-
-      if (!hasOverlap) {
-        blocks.push({
-          start: blockStart.toISOString(),
-          end: blockEnd.toISOString()
-        });
-        durationLeft -= 2;
-        // Add this dynamic block to blockers list as we go
-        blockers.push({ start: startMs, end: endMs });
-      }
-    }
-  }
-
-  return blocks;
+  // Kept for backward compatibility if called directly
+  return [];
 }
 
 /**
  * Dynamically re-allocates study sessions for all active tasks (pipeline).
- * Sorts them by urgency/importance and re-schedules focus blocks sequentially.
+ * Accounts for human limitations: focus span, fatigue, burnout, break duration, and least/most productive hours.
  */
 function triggerGlobalRescheduling(uid: string = 'default'): void {
   updateDb((db) => {
-    // 1. Clear all of our current study (deep work) blocks that are scheduled (non-completed)
+    // 1. Clear all current scheduled deep work study blocks
     db.scheduledSessions = db.scheduledSessions.filter(s => s.status !== 'scheduled');
     db.calendarEvents = db.calendarEvents.filter(e => e.category !== 'deep_work');
 
-    // 2. Map weight to importance levels: critical (4) > high (3) > medium (2) > low (1)
+    // 2. Read User Productivity Profile
+    const profile = db.userProfile || {};
+    const focusDurationHours = (profile.focusDurationMins || 60) / 60;
+    const maxDailySessions = profile.maxDailySessions || 4;
+    const breakDurationHours = (profile.breakDurationMins || 15) / 60;
+    const peakPeriod = profile.focusPeriod || 'afternoon';
+    const leastPeriod = profile.leastProductivePeriod || 'morning';
+
+    // 3. Map importance levels
     const getImportanceWeight = (imp?: string) => {
       if (imp === 'critical') return 4;
       if (imp === 'high') return 3;
@@ -279,59 +232,215 @@ function triggerGlobalRescheduling(uid: string = 'default'): void {
       return 1;
     };
 
-    // 3. Obtain active, non-completed tasks
+    // 4. Obtain active tasks sorted by importance descending, then deadline ascending
     const activeTasks = db.tasks.filter(t => t.status !== 'completed' && t.status !== 'missed');
-    
-    // 4. Sort tasks by importance descending, and then by deadline ascending
     activeTasks.sort((a, b) => {
       const weightA = getImportanceWeight(a.importance);
       const weightB = getImportanceWeight(b.importance);
-      if (weightA !== weightB) {
-        return weightB - weightA;
-      }
+      if (weightA !== weightB) return weightB - weightA;
       return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
     });
 
-    // 5. Successively schedule free study slots for each active task
-    activeTasks.forEach(task => {
-      const remaining = task.remainingEffort;
-      if (remaining <= 0) return;
-
-      // Note: findFreeBlocks evaluates blockers using the live db parameter
-      const blocks = findFreeBlocks(db, remaining);
-      const sessionsForTask = blocks.map((b, idx) => ({
-        id: `sess_dyn_${task.id}_${Date.now()}_${idx}`,
-        taskId: task.id,
-        taskTitle: task.title,
-        start: b.start,
-        end: b.end,
-        duration: 2,
-        status: 'scheduled' as const
-      }));
-
-      const eventsForTask = sessionsForTask.map(s => ({
-        id: `evt_${s.id}`,
-        title: `Study: ${task.title}`,
-        start: s.start,
-        end: s.end,
-        category: 'deep_work' as const,
-        taskId: task.id
-      }));
-
-      db.scheduledSessions.push(...sessionsForTask);
-      db.calendarEvents.push(...eventsForTask);
+    // Track remaining effort to allocate for each task
+    const taskEfforts = new Map<string, number>();
+    let totalNeededEffort = 0;
+    activeTasks.forEach(t => {
+      const eff = Math.max(0, t.remainingEffort);
+      taskEfforts.set(t.id, eff);
+      totalNeededEffort += eff;
     });
 
-    // 6. Record a notification trace
+    // 5. Workload feasibility check
+    const weeklyCapacity = 7 * maxDailySessions * focusDurationHours;
+    if (totalNeededEffort > weeklyCapacity && totalNeededEffort > 0) {
+      const prob = Math.max(18, Math.min(64, Math.round((weeklyCapacity / totalNeededEffort) * 100)));
+      
+      // Explicit warning requested by user
+      const warnMsg = `Warning: Based on your current workload, deadlines, and productivity patterns, completing all tasks on time is unlikely. Estimated completion probability: ${prob}%. Schedule optimized to maximize high-priority task completion.`;
+      
+      if (!db.notifications.some(n => n.message === warnMsg)) {
+        db.notifications.unshift({
+          id: `notif_warn_overload_${Date.now()}`,
+          title: "⚠️ Unrealistic Workload Detected!",
+          message: warnMsg,
+          type: "risk",
+          timestamp: new Date().toISOString(),
+          read: false,
+          actionable: true,
+          actionType: "heal_schedule"
+        });
+      }
+
+      // Update Risk Tracker percentages
+      activeTasks.forEach(t => {
+        let risk = db.riskAssessments.find(r => r.taskId === t.id);
+        if (!risk) {
+          risk = { taskId: t.id, probability: prob, status: 'likely_to_miss', reason: 'Workload exceeds human limits', calculatedAt: new Date().toISOString() };
+          db.riskAssessments.push(risk);
+        } else {
+          risk.probability = Math.min(risk.probability, prob);
+          risk.status = prob < 50 ? 'likely_to_miss' : 'at_risk';
+          risk.reason = `Workload exceeds available productive slots (${maxDailySessions}/day)`;
+        }
+      });
+    }
+
+    // 6. Build existing blockers list
+    const now = new Date("2026-06-22T11:00:00-07:00");
+    const blockers: { start: number; end: number }[] = [];
+    db.calendarEvents.forEach(e => {
+      const startMs = new Date(e.start).getTime() - (e.travelTime || 0) * 60 * 1000;
+      blockers.push({ start: startMs, end: new Date(e.end).getTime() });
+    });
+    db.scheduledSessions.forEach(s => {
+      if (s.status === 'scheduled' || s.status === 'completed') {
+        blockers.push({ start: new Date(s.start).getTime(), end: new Date(s.end).getTime() });
+      }
+    });
+
+    // Hour scoring function respecting human energy fluctuations
+    const getHourScore = (h: number): number => {
+      const isMorning = h >= 9 && h < 13;
+      const isAfternoon = h >= 13 && h < 17;
+      const isEvening = h >= 17 && h < 21;
+      const isNight = h >= 21 || h < 3;
+
+      if ((leastPeriod === 'morning' && isMorning) ||
+          (leastPeriod === 'afternoon' && isAfternoon) ||
+          (leastPeriod === 'evening' && isEvening) ||
+          (leastPeriod === 'night' && isNight)) {
+        return 10; // Avoid least productive period
+      }
+
+      if ((peakPeriod === 'morning' && isMorning) ||
+          (peakPeriod === 'afternoon' && isAfternoon) ||
+          (peakPeriod === 'evening' && isEvening) ||
+          (peakPeriod === 'night' && isNight)) {
+        return 100; // Optimal energy zone
+      }
+      return 50;
+    };
+
+    // Candidate starting hours sorted by energy match
+    const hourCandidates = [9, 11, 13, 15, 17, 19, 21].sort((a, b) => getHourScore(b) - getHourScore(a));
+
+    // 7. Schedule sessions day by day, interleaving tasks and inserting rest breaks
+    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+      let sessionsScheduledToday = 0;
+      let lastTaskIdAssignedToday: string | null = null;
+      const testDay = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+
+      for (const h of hourCandidates) {
+        if (sessionsScheduledToday >= maxDailySessions) break;
+        if (dayOffset === 0 && h <= now.getHours()) continue;
+
+        // Check if any task still needs effort
+        const anyTaskNeedsEffort = Array.from(taskEfforts.values()).some(eff => eff > 0);
+        if (!anyTaskNeedsEffort) break;
+
+        const blockStart = new Date(testDay);
+        blockStart.setHours(h, 0, 0, 0);
+        const blockEnd = new Date(blockStart.getTime() + focusDurationHours * 3600 * 1000);
+
+        const startMs = blockStart.getTime();
+        const endMs = blockEnd.getTime();
+
+        // Check blocker overlap
+        if (blockers.some(b => startMs < b.end && endMs > b.start)) continue;
+
+        // Pick task to interleave (avoid continuous monotony)
+        let chosenTask = activeTasks.find(t => (taskEfforts.get(t.id) || 0) > 0 && t.id !== lastTaskIdAssignedToday);
+        if (!chosenTask) {
+          chosenTask = activeTasks.find(t => (taskEfforts.get(t.id) || 0) > 0);
+        }
+        if (!chosenTask) break;
+
+        const remainingEffort = taskEfforts.get(chosenTask.id) || 0;
+        const actualDuration = Math.min(focusDurationHours, remainingEffort);
+        const actualEnd = new Date(blockStart.getTime() + actualDuration * 3600 * 1000);
+
+        const sessId = `sess_dyn_${chosenTask.id}_${Date.now()}_${dayOffset}_${sessionsScheduledToday}`;
+        
+        db.scheduledSessions.push({
+          id: sessId,
+          taskId: chosenTask.id,
+          taskTitle: chosenTask.title,
+          start: blockStart.toISOString(),
+          end: actualEnd.toISOString(),
+          duration: actualDuration,
+          status: 'scheduled'
+        });
+
+        db.calendarEvents.push({
+          id: `evt_${sessId}`,
+          title: `Focus: ${chosenTask.title}`,
+          start: blockStart.toISOString(),
+          end: actualEnd.toISOString(),
+          category: 'deep_work',
+          taskId: chosenTask.id
+        });
+
+        // Reserve rest break blocker immediately following intensive block
+        blockers.push({ start: startMs, end: actualEnd.getTime() + breakDurationHours * 3600 * 1000 });
+        taskEfforts.set(chosenTask.id, remainingEffort - actualDuration);
+        lastTaskIdAssignedToday = chosenTask.id;
+        sessionsScheduledToday++;
+      }
+    }
+
+    // 8. Record notification summary
     db.notifications.unshift({
       id: "notif_dyn_" + Math.random().toString(36).substr(2, 9),
-      title: "Pipeline Recalculated Automatically",
-      message: `System dynamically reorganized focus buffers for ${activeTasks.length} active tasks across your week to assure optimal coverage.`,
+      title: "Human-Centered Schedule Optimized",
+      message: `Allocated ${activeTasks.length} tasks across your week with rest breaks and energy rhythm alignment.`,
       type: 'schedule_change',
       timestamp: new Date().toISOString(),
       read: false
     });
   }, uid);
+}
+
+/**
+ * Checks for past scheduled sessions and automatically marks them as missed,
+ * and triggers global rescheduling to re-allocate those unfinished hours.
+ */
+function resolveMissedSessionsAndReschedule(uid: string): boolean {
+  let changed = false;
+  const now = new Date();
+  const simulatedNow = now.getFullYear() < 2026 ? new Date("2026-06-22T11:00:00-07:00") : now;
+
+  updateDb((db) => {
+    db.scheduledSessions.forEach((s: ScheduledSession) => {
+      if (s.status === 'scheduled' && new Date(s.end).getTime() < simulatedNow.getTime()) {
+        s.status = 'missed';
+        changed = true;
+
+        // Automatically push an accountability alert notification
+        db.notifications.unshift({
+          id: `notif_missed_${s.id}_${Date.now()}`,
+          title: "Missed Scheduled Session!",
+          message: `You missed your scheduled study session "${s.taskTitle}". Initiating autonomous rescheduling and risk recalculation...`,
+          type: "missed",
+          timestamp: new Date().toISOString(),
+          read: false,
+          actionable: true,
+          actionId: s.taskId,
+          actionType: 'heal_schedule'
+        });
+      }
+    });
+  }, uid);
+
+  if (changed) {
+    console.log(`Missed sessions detected for user ${uid}. Triggering global autonomous reschedule...`);
+    try {
+      triggerGlobalRescheduling(uid);
+    } catch (e) {
+      console.warn("Rescheduling failed during autonomous missed check:", e);
+    }
+  }
+
+  return changed;
 }
 
 // ==========================================
@@ -342,6 +451,14 @@ function triggerGlobalRescheduling(uid: string = 'default'): void {
 app.get('/api/profile', (req: Request, res: Response) => {
   try {
     const uid = getUid(req);
+    
+    // Automatically flag missed sessions and reschedule in real time
+    try {
+      resolveMissedSessionsAndReschedule(uid);
+    } catch (e) {
+      console.warn("Autonomous missed check failed:", e);
+    }
+
     const db = readDb(uid);
     const analytics = calculateAnalyticsModel(db);
     const tasksWithRisk = db.tasks.map(t => {
@@ -363,7 +480,8 @@ app.get('/api/profile', (req: Request, res: Response) => {
       recentNotifications: db.notifications.slice(0, 5),
       tasks: tasksWithRisk,
       goals: db.goals,
-      habits: db.habits
+      habits: db.habits,
+      scheduledSessions: db.scheduledSessions
     });
   } catch (err) {
     handleError(res, err, "Failed to get profile data");
@@ -379,6 +497,14 @@ app.post('/api/profile/onboard', (req: Request, res: Response) => {
       return res.status(400).json({ error: "Invalid database structure" });
     }
     writeDb(databaseData, uid);
+    
+    // Automatically trigger dynamic rescheduling around new Google calendar blockers or profile preference
+    try {
+      triggerGlobalRescheduling(uid);
+    } catch (e) {
+      console.warn("Rescheduling failed during onboarding:", e);
+    }
+
     res.json({ success: true, message: "Onboarding completed and synced successfully" });
   } catch (err) {
     handleError(res, err, "Failed to save onboarding data");
@@ -685,6 +811,103 @@ app.get('/api/calendar', (req: Request, res: Response) => {
     res.json(events);
   } catch (err) {
     handleError(res, err, "Failed to load calendar events");
+  }
+});
+
+// POST Toggle Calendar Session Completion Status
+app.post('/api/calendar/complete-session', async (req: Request, res: Response) => {
+  try {
+    const { eventId, completed } = req.body;
+    const uid = getUid(req);
+    let taskIdToAssess: string | null = null;
+
+    updateDb((db) => {
+      // Find the calendar event
+      const eventIdx = db.calendarEvents.findIndex(e => e.id === eventId);
+      if (eventIdx !== -1) {
+        const event = db.calendarEvents[eventIdx];
+        taskIdToAssess = event.taskId || null;
+        
+        // Find corresponding scheduled session
+        const sessionIdx = db.scheduledSessions.findIndex(s => 
+          s.taskId === event.taskId && 
+          new Date(s.start).getTime() === new Date(event.start).getTime()
+        );
+
+        if (sessionIdx !== -1) {
+          const session = db.scheduledSessions[sessionIdx];
+          const prevStatus = session.status;
+          session.status = completed ? 'completed' : 'scheduled';
+          
+          // Update corresponding task remainingEffort
+          if (event.taskId) {
+            const taskIdx = db.tasks.findIndex(t => t.id === event.taskId);
+            if (taskIdx !== -1) {
+              const task = db.tasks[taskIdx];
+              if (completed && prevStatus !== 'completed') {
+                task.remainingEffort = Math.max(0, task.remainingEffort - session.duration);
+                if (task.remainingEffort === 0) {
+                  task.status = 'completed';
+                }
+              } else if (!completed && prevStatus === 'completed') {
+                task.remainingEffort = task.remainingEffort + session.duration;
+                task.status = 'in_progress';
+              }
+            }
+          }
+        }
+      }
+    }, uid);
+
+    if (taskIdToAssess) {
+      // Re-assess risk after changing remaining efforts
+      try {
+        await evalSingleTaskRisk(taskIdToAssess, uid);
+      } catch (err) {
+        console.warn("Failed to recalculate risk for completed session:", err);
+      }
+    }
+
+    res.json({ success: true, message: "Session completion status toggled successfully." });
+  } catch (err) {
+    handleError(res, err, "Failed to toggle session completion status");
+  }
+});
+
+// POST Drag and Drop Move Calendar Event Slot
+app.post('/api/calendar/move-event', async (req: Request, res: Response) => {
+  try {
+    const { eventId, targetDateStr } = req.body;
+    const uid = getUid(req);
+
+    updateDb((db) => {
+      const evt = db.calendarEvents.find(e => e.id === eventId);
+      if (evt) {
+        const oldStart = new Date(evt.start);
+        const oldEnd = new Date(evt.end);
+        const durationMs = oldEnd.getTime() - oldStart.getTime();
+
+        const [year, month, day] = targetDateStr.split('-').map(Number);
+        const newStart = new Date(oldStart);
+        newStart.setFullYear(year, month - 1, day);
+        const newEnd = new Date(newStart.getTime() + durationMs);
+
+        evt.start = newStart.toISOString();
+        evt.end = newEnd.toISOString();
+
+        if (evt.taskId) {
+          const sess = db.scheduledSessions.find(s => s.taskId === evt.taskId && s.status === 'scheduled');
+          if (sess) {
+            sess.start = evt.start;
+            sess.end = evt.end;
+          }
+        }
+      }
+    }, uid);
+
+    res.json({ success: true, message: "Slot moved successfully via drag and drop" });
+  } catch (err) {
+    handleError(res, err, "Failed to move calendar event");
   }
 });
 

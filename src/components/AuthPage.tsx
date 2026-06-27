@@ -8,6 +8,7 @@ import {
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { apiFetch } from '../utils/api';
+import { getAccessToken, googleSignIn, fetchGoogleCalendarEvents } from '../utils/googleAuth';
 import { 
   Sparkles, Compass, Clock, CheckSquare, Target, Flame, 
   ArrowRight, ArrowLeft, Key, Mail, User, ShieldAlert
@@ -37,6 +38,13 @@ export function AuthPage({ onAuthComplete }: AuthPageProps) {
   const [activeTarget, setActiveTarget] = useState('IIT Kharagpur Semester Prep');
   const [customTarget, setCustomTarget] = useState('');
   const [focusPeriod, setFocusPeriod] = useState('evening'); // morning, afternoon, evening, night
+  const [leastProductivePeriod, setLeastProductivePeriod] = useState('morning');
+  const [focusDurationMins, setFocusDurationMins] = useState(60);
+  const [maxDailySessions, setMaxDailySessions] = useState(4);
+  const [sessionPreference, setSessionPreference] = useState<'long_deep' | 'short_breaks'>('short_breaks');
+  const [breakFrequencyMins, setBreakFrequencyMins] = useState(60);
+  const [breakDurationMins, setBreakDurationMins] = useState(15);
+  const [pressurePreference, setPressurePreference] = useState<'pressure_deadline' | 'early_prep'>('early_prep');
   const [focusHours, setFocusHours] = useState(4);
   const [initialTaskTitle, setInitialTaskTitle] = useState('Operating Systems Assignment');
   const [initialTaskDeadline, setInitialTaskDeadline] = useState('2026-06-26');
@@ -356,7 +364,17 @@ export function AuthPage({ onAuthComplete }: AuthPageProps) {
           email: tempUser.email,
           avatarUrl: tempUser.photoURL || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(tempUser.email)}`,
           joinedDate: new Date().toISOString().split('T')[0],
-          lastActive: new Date().toISOString()
+          lastActive: new Date().toISOString(),
+          focusPeriod: focusPeriod as any,
+          leastProductivePeriod: leastProductivePeriod as any,
+          focusDurationMins: focusDurationMins,
+          maxDailySessions: maxDailySessions,
+          sessionPreference: sessionPreference,
+          dailyBufferMins: focusHours * 60,
+          breakFrequencyMins: breakFrequencyMins,
+          breakDurationMins: breakDurationMins,
+          pressurePreference: pressurePreference,
+          workingStyle: workingStyle
         },
         tasks: [initialTask],
         goals: presetGoals,
@@ -368,6 +386,40 @@ export function AuthPage({ onAuthComplete }: AuthPageProps) {
         riskAssessments: [initialRisk],
         rescheduleLogs: []
       };
+
+      // Automatically fetch Google Calendar events on registration
+      let token = getAccessToken();
+      if (!token && tempUser && !tempUser.isSandbox) {
+        try {
+          const resSig = await googleSignIn();
+          if (resSig) {
+            token = resSig.accessToken;
+          }
+        } catch (err) {
+          console.warn("Failed to sign in with Google on onboarding:", err);
+        }
+      }
+
+      if (token) {
+        try {
+          const gcalEvents = await fetchGoogleCalendarEvents(token);
+          gcalEvents.forEach((evt: any) => {
+            const itemStart = evt.start?.dateTime || evt.start?.date || evt.start;
+            const itemEnd = evt.end?.dateTime || evt.end?.date || evt.end;
+            if (itemStart && itemEnd) {
+              newDatabase.calendarEvents.push({
+                id: `gcal_${evt.id || Math.random().toString(36).substr(2, 9)}`,
+                title: evt.summary || evt.title || "Google Calendar Event",
+                start: new Date(itemStart).toISOString(),
+                end: new Date(itemEnd).toISOString(),
+                category: 'meeting'
+              });
+            }
+          });
+        } catch (err) {
+          console.error("Failed to automatically sync Google Calendar on registration:", err);
+        }
+      }
 
       // Save to Firestore!
       try {
@@ -442,7 +494,7 @@ export function AuthPage({ onAuthComplete }: AuthPageProps) {
           <div className="space-y-6">
             <div className="flex items-center justify-between border-b-2 border-black pb-3">
               <div>
-                <span className="text-[10px] font-mono font-black uppercase text-black/60">Step {onboardingStep} of 4</span>
+                <span className="text-[10px] font-mono font-black uppercase text-black/60">Step {onboardingStep} of 5</span>
                 <h2 className="text-lg font-black uppercase tracking-wide">Personalize Chief of Staff</h2>
               </div>
               <Compass className="w-6 h-6 text-black stroke-[2.5px] animate-spin-slow" />
@@ -510,51 +562,160 @@ export function AuthPage({ onAuthComplete }: AuthPageProps) {
               </div>
             )}
 
-            {/* STEP 3: Time calibration preferences */}
+            {/* STEP 3: Energy & Focus Rhythm */}
             {onboardingStep === 3 && (
-              <div className="space-y-4">
-                <h3 className="text-xs font-mono font-black uppercase tracking-wide">Calibrate Peak Focus Hours</h3>
-                <p className="text-[11px] font-mono text-black/60 leading-normal font-bold">
-                  Goofy AI maps schedule buffers to periods of optimal cognitive density. Where do you work best?
-                </p>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  {[
-                    { id: 'morning', label: 'Morning Block', desc: '9:00 AM - 1:00 PM', color: 'bg-[#b8f598]' },
-                    { id: 'afternoon', label: 'Afternoon Zone', desc: '1:00 PM - 5:00 PM', color: 'bg-[#98e2ff]' },
-                    { id: 'evening', label: 'Evening Peak', desc: '6:00 PM - 10:00 PM', color: 'bg-[#ffa852]' },
-                    { id: 'night', label: 'Night Owl Mode', desc: '10:00 PM - 2:00 AM', color: 'bg-[#ff9ee1]' }
-                  ].map((period) => (
-                    <button
-                      key={period.id}
-                      onClick={() => setFocusPeriod(period.id)}
-                      className={`p-3 text-left border-2 border-black rounded-lg transition-all cursor-pointer flex flex-col justify-between h-24 ${focusPeriod === period.id ? `${period.color} translate-x-[1px] translate-y-[1px] shadow-[1.5px_1.5px_0px_0px_#000000]` : 'bg-white hover:bg-neutral-50'}`}
-                    >
-                      <span className="text-xs font-black">{period.label}</span>
-                      <span className="text-[10px] font-mono font-bold text-black/60">{period.desc}</span>
-                    </button>
-                  ))}
+              <div className="space-y-4 max-h-[340px] overflow-y-auto pr-1">
+                <div className="space-y-2">
+                  <h3 className="text-xs font-mono font-black uppercase tracking-wide">Most Productive Time of Day</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'morning', label: 'Morning 🌅', desc: '9 AM - 1 PM' },
+                      { id: 'afternoon', label: 'Afternoon ☀️', desc: '1 PM - 5 PM' },
+                      { id: 'evening', label: 'Evening 🌇', desc: '6 PM - 10 PM' },
+                      { id: 'night', label: 'Night Owl 🌙', desc: '10 PM - 2 AM' }
+                    ].map((period) => (
+                      <button
+                        key={period.id}
+                        onClick={() => setFocusPeriod(period.id)}
+                        className={`p-2.5 text-left border-2 border-black rounded transition-all cursor-pointer ${focusPeriod === period.id ? 'bg-[#b8f598] font-black shadow-[1.5px_1.5px_0px_0px_#000]' : 'bg-white hover:bg-neutral-50'}`}
+                      >
+                        <div className="text-xs font-black">{period.label}</div>
+                        <div className="text-[10px] font-mono text-black/60">{period.desc}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="space-y-2 pt-2">
+                <div className="space-y-2">
+                  <h3 className="text-xs font-mono font-black uppercase tracking-wide">Least Productive Time of Day</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'morning', label: 'Morning 🌅' },
+                      { id: 'afternoon', label: 'Afternoon ☀️' },
+                      { id: 'evening', label: 'Evening 🌇' },
+                      { id: 'night', label: 'Night Owl 🌙' }
+                    ].map((period) => (
+                      <button
+                        key={period.id}
+                        onClick={() => setLeastProductivePeriod(period.id)}
+                        className={`p-2 text-left border-2 border-black rounded transition-all cursor-pointer ${leastProductivePeriod === period.id ? 'bg-[#ff9ee1] font-black shadow-[1.5px_1.5px_0px_0px_#000]' : 'bg-white hover:bg-neutral-50'}`}
+                      >
+                        <span className="text-xs font-black">{period.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-xs font-mono font-black uppercase tracking-wide">Realistic Focus in One Sitting</h3>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[30, 60, 90, 120].map((mins) => (
+                      <button
+                        key={mins}
+                        onClick={() => setFocusDurationMins(mins)}
+                        className={`py-2 px-1 text-center border-2 border-black rounded font-mono text-xs cursor-pointer ${focusDurationMins === mins ? 'bg-[#ffe555] font-black shadow-[1px_1px_0px_0px_#000]' : 'bg-white hover:bg-neutral-50'}`}
+                      >
+                        {mins >= 60 ? `${mins/60} hr` : `${mins} m`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-xs font-mono font-black uppercase tracking-wide">Max Daily Work Sessions Capacity</h3>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[2, 4, 6, 8].map((num) => (
+                      <button
+                        key={num}
+                        onClick={() => setMaxDailySessions(num)}
+                        className={`py-2 px-1 text-center border-2 border-black rounded font-mono text-xs cursor-pointer ${maxDailySessions === num ? 'bg-[#98e2ff] font-black shadow-[1px_1px_0px_0px_#000]' : 'bg-white hover:bg-neutral-50'}`}
+                      >
+                        {num} slots
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 4: Working Style & Breaks */}
+            {onboardingStep === 4 && (
+              <div className="space-y-4 max-h-[340px] overflow-y-auto pr-1">
+                <div className="space-y-2">
+                  <h3 className="text-xs font-mono font-black uppercase tracking-wide">Session Preference</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setSessionPreference('long_deep')}
+                      className={`p-3 text-left border-2 border-black rounded cursor-pointer ${sessionPreference === 'long_deep' ? 'bg-[#dfbeff] font-black shadow-[1.5px_1.5px_0px_0px_#000]' : 'bg-white hover:bg-neutral-50'}`}
+                    >
+                      <div className="text-xs font-black">Long Deep-Work</div>
+                      <div className="text-[10px] font-mono text-black/60">Fewer interruptions</div>
+                    </button>
+                    <button
+                      onClick={() => setSessionPreference('short_breaks')}
+                      className={`p-3 text-left border-2 border-black rounded cursor-pointer ${sessionPreference === 'short_breaks' ? 'bg-[#b8f598] font-black shadow-[1.5px_1.5px_0px_0px_#000]' : 'bg-white hover:bg-neutral-50'}`}
+                    >
+                      <div className="text-xs font-black">Shorter + Breaks</div>
+                      <div className="text-[10px] font-mono text-black/60">Sustainable pacing</div>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
                   <div className="flex justify-between items-center text-xs font-mono font-black">
-                    <span>DAILY COMMITMENT BUFFER</span>
+                    <span>DAILY FREE / BUFFER TIME</span>
                     <span className="bg-[#fffccf] border border-black px-1.5 rounded">{focusHours} HOURS</span>
                   </div>
                   <input
                     type="range"
                     min="1"
-                    max="8"
+                    max="6"
                     value={focusHours}
                     onChange={(e) => setFocusHours(Number(e.target.value))}
                     className="w-full accent-black cursor-pointer"
                   />
+                  <div className="text-[10px] font-mono text-black/60 font-bold">Buffer time reserved daily for unexpected delays or rest.</div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-xs font-mono font-black uppercase tracking-wide">Break Duration Preference</h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[10, 15, 20].map((bm) => (
+                      <button
+                        key={bm}
+                        onClick={() => setBreakDurationMins(bm)}
+                        className={`py-2 px-1 text-center border-2 border-black rounded font-mono text-xs cursor-pointer ${breakDurationMins === bm ? 'bg-[#ffa852] font-black shadow-[1px_1px_0px_0px_#000]' : 'bg-white hover:bg-neutral-50'}`}
+                      >
+                        {bm} mins break
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-xs font-mono font-black uppercase tracking-wide">Deadline Psychology</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setPressurePreference('early_prep')}
+                      className={`p-2.5 text-left border-2 border-black rounded cursor-pointer ${pressurePreference === 'early_prep' ? 'bg-[#b8f598] font-black shadow-[1px_1px_0px_0px_#000]' : 'bg-white hover:bg-neutral-50'}`}
+                    >
+                      <div className="text-xs font-black">Early Preparation</div>
+                      <div className="text-[10px] font-mono text-black/60">Even distribution</div>
+                    </button>
+                    <button
+                      onClick={() => setPressurePreference('pressure_deadline')}
+                      className={`p-2.5 text-left border-2 border-black rounded cursor-pointer ${pressurePreference === 'pressure_deadline' ? 'bg-[#ff9ee1] font-black shadow-[1px_1px_0px_0px_#000]' : 'bg-white hover:bg-neutral-50'}`}
+                    >
+                      <div className="text-xs font-black">Work Under Pressure</div>
+                      <div className="text-[10px] font-mono text-black/60">Front-load near deadline</div>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* STEP 4: Build Initial Task */}
-            {onboardingStep === 4 && (
+            {/* STEP 5: Build Initial Task */}
+            {onboardingStep === 5 && (
               <div className="space-y-4">
                 <h3 className="text-xs font-mono font-black uppercase tracking-wide">Launch Your First Major Commitment</h3>
                 <p className="text-[11px] font-mono text-black/60 leading-normal font-bold">
@@ -626,7 +787,7 @@ export function AuthPage({ onAuthComplete }: AuthPageProps) {
                 <div />
               )}
 
-              {onboardingStep < 4 ? (
+              {onboardingStep < 5 ? (
                 <button
                   type="button"
                   onClick={() => setOnboardingStep(onboardingStep + 1)}

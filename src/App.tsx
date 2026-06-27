@@ -15,7 +15,7 @@ import { GoalsHabitsPanel } from './components/GoalsHabitsPanel';
 import { AnalyticsPanel } from './components/AnalyticsPanel';
 import { CopilotPanel } from './components/CopilotPanel';
 import { VoicePanel } from './components/VoicePanel';
-import { Task, CalendarEvent, GmailCommitment, Goal, Habit, Analytics } from './types/index';
+import { Task, CalendarEvent, ScheduledSession, GmailCommitment, Goal, Habit, Analytics } from './types/index';
 import { AuthPage } from './components/AuthPage';
 import { auth } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -35,6 +35,7 @@ export default function App() {
   // Loaded database state
   const [tasks, setTasks] = useState<Task[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [scheduledSessions, setScheduledSessions] = useState<ScheduledSession[]>([]);
   const [commitments, setCommitments] = useState<GmailCommitment[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -148,6 +149,7 @@ export default function App() {
       setTasks(profileData.tasks || []);
       setGoals(profileData.goals || []);
       setHabits(profileData.habits || []);
+      setScheduledSessions(profileData.scheduledSessions || []);
       setAnalytics(profileData.analytics || null);
       setUserProfile(profileData.userProfile || null);
 
@@ -271,7 +273,7 @@ export default function App() {
               <span className="text-black/30 hidden sm:inline-block">•</span>
               <span className="text-xs text-black font-extrabold font-mono flex items-center gap-1.5 bg-[#dfbeff] px-3 py-1 rounded border-2 border-black neo-shadow-black-sm">
                 <Compass className="w-3.5 h-3.5 text-black animate-spin-slow" />
-                Active Target: IIT Kharagpur Semester Prep
+                Active Target: Harvard MBA 
               </span>
             </div>
           </div>
@@ -440,6 +442,7 @@ export default function App() {
                         {/* Travel-Safe Calendar */}
                         <CalendarPanel 
                           events={calendarEvents} 
+                          scheduledSessions={scheduledSessions}
                           onEventCreated={fetchAppData} 
                           isLoading={isLoading} 
                           setIsLoading={setIsLoading} 
